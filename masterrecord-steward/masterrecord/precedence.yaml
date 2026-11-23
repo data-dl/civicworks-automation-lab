@@ -1,0 +1,43 @@
+# Field-level precedence for the fictional Guild of Joiners & Finishers. Invented rules.
+#
+# order:          sources that may supply the field, most trusted first
+# authority:      if this source has a value it wins; other sources that disagree are recorded, not used
+#                 (fields without an authority HOLD whenever two credible sources disagree)
+# fallback:       only when every source in `order` is empty
+# required:       an entity with no value at all is held as UNKNOWN (never guessed)
+
+fields:
+  certification_class:
+    order: [registry, contract]
+    authority: registry
+    required: true
+    allowed: [Journeyman, Master, Fellow, none]      # "none" = not certified = ineligible, not unknown
+  participation_status:
+    order: [registry]
+    authority: registry
+    required: true
+    allowed: [active, paused, lapsed]
+  network_affiliation:
+    order: [contract, registry]
+    required: false
+    allowed: [Northern Circle, Coastal Ring, Inland Bench, independent]
+  workshop_type:
+    order: [registry, site, contract]
+    required: true
+    allowed: [joinery, finishing, turning, restoration, retail showroom]
+  inspection_zone:
+    order: [registry, site]
+    required: true
+    fallback: geozone
+    allowed: [Z1, Z2, Z3, Z4, Z5]
+
+out_of_scope:
+  workshop_type: [retail showroom]                    # excluded from the master, with a reason
+
+geozone:                                              # invented postcode-token -> zone map (fallback only)
+  QA: Z1
+  QB: Z1
+  RA: Z2
+  RB: Z3
+  SA: Z4
+  SB: Z5

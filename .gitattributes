@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.xlsx binary
+*.docx binary
+*.mp4 binary
+*.png binary
+*.vtt text eol=lf

@@ -1,0 +1,37 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:07.000
+Regional Programs Analytics. Quarterly Excel reports for an arts network that refuse to be approved while the data is incomplete or wrong.
+
+00:00:07.933 --> 00:00:18.067
+1. A fictional arts network: 4 regions, 16 venues, two service tiers. Sixteen invented venues send a CSV every quarter. This quarter's files carry five planted problems.
+
+00:00:18.067 --> 00:00:28.667
+2. Last quarter: checks pass, the program director approves it. Last quarter is clean: checks pass, the program director approves, and the workbooks are frozen read-only.
+
+00:00:28.667 --> 00:00:40.000
+3. This quarter: draft packs are built, but approval is blocked. This quarter builds draft workbooks but approval is blocked: two venues missing, one total that does not add up. A wrong-quarter file and a second version are handled and noted.
+
+00:00:40.000 --> 00:00:51.600
+4. Reminders went out; the late and corrected files arrive. The late and corrected files arrive. Rerun: everything reconciles and the quarter is approved. A real attendance swing is flagged for commentary.
+
+00:00:51.600 --> 00:01:02.267
+5. Someone re-runs approval: the approved quarter is not replaced. Approving again replaces nothing. A revision would need --new-version and would sit beside v1.
+
+00:01:02.267 --> 00:01:12.600
+6. What was produced. Approved workbooks and draft emails. Nothing is sent; the outbox holds drafts for a person.
+
+00:01:12.600 --> 00:01:19.133
+What it produced: Studio_2026Q3.xlsx - Summary tab. The approved Summary tab: every figure is a formula over the venue rows, with the chart.
+
+00:01:19.133 --> 00:01:25.667
+What it produced: Studio_2026Q3.xlsx - Quarter Comparison tab. Like-for-like comparison with last quarter.
+
+00:01:25.667 --> 00:01:32.200
+What it produced: Incidents_2026Q3.xlsx - Incidents tab. The incident workbook, reportable incidents highlighted.
+
+00:01:32.200 --> 00:01:38.733
+What it produced: outbox/2026Q3/2026Q3-program-director.eml. A distribution draft - marked NOT SENT.
+
+00:01:38.733 --> 00:01:45.733
+What this run showed: Missing venues and bad totals blocked approval; Wrong-quarter and duplicate files handled, not counted twice; Approved quarters frozen and hashed; Distribution is draft-only. Tests: 11 passed.

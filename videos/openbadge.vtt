@@ -1,0 +1,37 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:07.000
+OpenBadge Registry Publisher. Publishing a public data file so that bad records and bad uploads never reach the people who import it.
+
+00:00:07.933 --> 00:00:13.733
+1. Seed a synthetic academy. Every learner, badge and date comes from a fixed seed, so the same academy can be rebuilt exactly.
+
+00:00:13.733 --> 00:00:22.667
+2. First release: validate, publish, verify over HTTP, then move the pointer. The registry is written as a dated file, fetched back over HTTP and matched by hash. Only then does 'latest' point to it.
+
+00:00:22.667 --> 00:00:33.600
+3. Bad data arrives: a duplicated badge and an impossible expiry date. Two bad records are planted. The release is blocked, each finding names the record, and nothing is published.
+
+00:00:33.600 --> 00:00:44.533
+4. Steward fixes the data; this time the upload is cut off half way. The data is fixed, but the upload is cut off half way. The hash check catches it, so consumers stay on the last good release and a ticket opens.
+
+00:00:44.533 --> 00:00:55.467
+5. Re-run the release; the catalogue imports it a day later. The rerun publishes. The outside catalogue imports a day later: pending, then accepted, tracked apart from the technical result.
+
+00:00:55.467 --> 00:01:04.667
+6. Roll back: a release that never verified is refused, the last good one is accepted. Rollback refuses the release that never verified and returns to the last one that did, after checking it over HTTP.
+
+00:01:04.667 --> 00:01:15.733
+7. Release history. Every attempt stays on record, including the blocked and failed ones.
+
+00:01:15.733 --> 00:01:22.267
+What it produced: site/latest.json. The pointer consumers read: which release, its hash and record count.
+
+00:01:22.267 --> 00:01:28.800
+What it produced: tickets/T001-R0003-verify-failed.md. The correction ticket opened by the cut-off upload.
+
+00:01:28.800 --> 00:01:35.333
+What it produced: runs/R0004/manifest.json. Every release leaves a manifest: stages, hashes, seed, versions and the verdict.
+
+00:01:35.333 --> 00:01:42.333
+What this run showed: Bad records blocked with the record named; A damaged upload never became 'latest'; Rollback only to a release proven good; Every attempt on record. Tests: 13 passed.

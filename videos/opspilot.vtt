@@ -1,0 +1,40 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:07.000
+OpsPilot Control Center. One control room for the other pipelines that cannot do more than its contracts allow.
+
+00:00:07.933 --> 00:00:19.800
+1. The registry: the only actions OpsPilot can take. The registry is the complete list of actions: typed inputs and an effect class. There is no 'run any command'.
+
+00:00:19.800 --> 00:00:31.000
+2. Plan 'publish-cycle' with the rules planner. The rules planner orders the steps by what each one waits for.
+
+00:00:31.000 --> 00:00:43.000
+3. Run it: write steps proceed, publish steps wait for a person. Write steps run. Both publish steps stop: they need a person's approval.
+
+00:00:43.000 --> 00:00:50.200
+4. A person approves the two publish steps. A person approves each publish step; each approval is a token scoped to one step of one run.
+
+00:00:50.200 --> 00:00:56.533
+5. Resume - and the machine stops right after the badge release. Resumed, the process stops right after the badge release. The run is marked interrupted.
+
+00:00:56.533 --> 00:01:08.000
+6. Resume again: verified checkpoints are skipped, the rest finishes. Resumed again: six steps are skipped because their outputs still hash the same; the last one runs. Complete.
+
+00:01:08.000 --> 00:01:19.200
+7. A second goal: the roster project's own checks stop it. A second goal reaches the roster project, whose own checks refuse to approve. OpsPilot stops and says what to do next.
+
+00:01:19.200 --> 00:01:30.400
+8. Requests OpsPilot refuses (each one is logged). Requests it refuses, each logged: an unknown command, a path outside its folders, an unapproved publish, a language-model plan, and erasing history.
+
+00:01:30.400 --> 00:01:35.800
+9. Read-only status page. A read-only status page and a handoff note for whoever picks the run up.
+
+00:01:35.800 --> 00:01:42.333
+What it produced: status.html. The status page: runs, steps, output hashes, approvals, the event log.
+
+00:01:42.333 --> 00:01:48.867
+What it produced: logs/roster-cycle-2026-11-23/HANDOFF.md. The handoff note for the blocked run.
+
+00:01:48.867 --> 00:01:55.867
+What this run showed: Publish steps waited for a person; Resume skipped only hash-verified work; A project's own block stopped the run; Unregistered and unsafe requests refused and logged. Tests: 15 passed.

@@ -1,0 +1,92 @@
+# The only things OpsPilot can do. Each tool is a typed contract over one CivicWorks project's
+# command line. There is no generic "run a command" tool, so a request for anything else is refused.
+#
+# effect:   read     - looks, changes nothing
+#           write    - changes its own project workspace only
+#           publish  - produces something other people consume; needs a scoped human approval
+# outputs:  files (relative to the project workspace) whose hashes become the step's checkpoint.
+#           Only files nothing later rewrites: a database or a draft that the next step legitimately
+#           changes would make every resume think the step had been undone.
+
+tools:
+  masterrecord.init:
+    module: masterrecord
+    argv: [init, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: write
+    outputs: [feeds/2026-11/registry.csv, feeds/2026-11/contract.csv, feeds/2026-11/site.csv]
+  masterrecord.propose:
+    module: masterrecord
+    argv: [propose, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: write
+    outputs: [review/Review_queue_2026-11.xlsx]
+  openbadge.init:
+    module: openbadge
+    argv: [init, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: write
+    outputs: []                       # only a database, which every release changes; checkpoint by status
+  openbadge.release:
+    module: openbadge
+    argv: [release, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: publish
+    outputs: [site/latest.json]
+  regional.init:
+    module: regional
+    argv: [init, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: write
+    outputs: [inbox/2026Q2/HV-NF01_v1.csv, inbox/2026Q3/HV-NF01_v1.csv]
+  regional.review:
+    module: regional
+    argv: [run, --workspace, "{workspace}", --quarter, "{quarter}"]
+    inputs: {workspace: workspace, quarter: quarter}
+    effect: write
+    outputs: []                       # its drafts are rebuilt by the approval step
+  regional.approve:
+    module: regional
+    argv: [run, --workspace, "{workspace}", --quarter, "{quarter}", --approve, "{role}"]
+    inputs: {workspace: workspace, quarter: quarter, role: role}
+    effect: publish
+    outputs: ["approved/{quarter}/v1/Studio_{quarter}.xlsx"]
+  reconcilehub.init:
+    module: reconcilehub
+    argv: [init, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: write
+    outputs: [inputs/2026-11/current_roster.csv]
+  reconcilehub.reconcile:
+    module: reconcilehub
+    argv: [reconcile, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: read
+    outputs: []
+  reconcilehub.commit:
+    module: reconcilehub
+    argv: [commit, --workspace, "{workspace}", --approve, "{role}"]
+    inputs: {workspace: workspace, role: role}
+    effect: publish
+    outputs: [snapshots/2026-11/v1/approved_roster.csv]
+
+# Goals the rules-based planner knows: steps, their parameters, and what each waits for.
+goals:
+  publish-cycle:
+    description: master records reviewed, badge registry released, last quarter's reports approved
+    steps:
+      - {id: master-init, tool: masterrecord.init, project: masterrecord}
+      - {id: master-propose, tool: masterrecord.propose, project: masterrecord, after: [master-init]}
+      - {id: badge-init, tool: openbadge.init, project: openbadge}
+      - {id: badge-release, tool: openbadge.release, project: openbadge, after: [badge-init, master-propose]}
+      - {id: regional-init, tool: regional.init, project: regional}
+      - {id: regional-review, tool: regional.review, project: regional, after: [regional-init],
+         params: {quarter: 2026Q2}}
+      - {id: regional-approve, tool: regional.approve, project: regional, after: [regional-review],
+         params: {quarter: 2026Q2}}
+  roster-cycle:
+    description: this month's access roster reconciled and approved
+    steps:
+      - {id: roster-init, tool: reconcilehub.init, project: reconcilehub}
+      - {id: roster-check, tool: reconcilehub.reconcile, project: reconcilehub, after: [roster-init]}
+      - {id: roster-commit, tool: reconcilehub.commit, project: reconcilehub, after: [roster-check]}

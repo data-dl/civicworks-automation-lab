@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/lantern/registry.schema.json",
+  "title": "Lantern Skills Academy public badge registry (fictional)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "registry", "release_id", "as_of", "notice", "record_count", "badges"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "registry": {"const": "Lantern Skills Academy (fictional)"},
+    "release_id": {"type": "string", "pattern": "^R[0-9]{4}$"},
+    "as_of": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "notice": {"type": "string", "minLength": 10},
+    "record_count": {"type": "integer", "minimum": 0},
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["badge_id", "learner_alias", "badge_type", "label", "issued", "expires"],
+        "properties": {
+          "badge_id": {"type": "string", "pattern": "^LSA-[0-9A-F]{8}$"},
+          "learner_alias": {"type": "string", "pattern": "^[a-z]+-[a-z]+-[0-9]{3}$"},
+          "badge_type": {"type": "string", "pattern": "^[A-Z0-9-]+$"},
+          "label": {"type": "string"},
+          "issued": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+          "expires": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
+        }
+      }
+    }
+  }
+}

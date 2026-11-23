@@ -1,0 +1,34 @@
+[project]
+name = "opspilot-control-center"
+version = "0.1.0"
+description = "OpsPilot Control Center - agent-ready orchestration of the CivicWorks pipelines with approvals, checkpoints and refusals."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = ["pyyaml>=6"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+opspilot = "opspilot.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["opspilot*"]
+
+[tool.setuptools.package-data]
+opspilot = ["*.json", "*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
