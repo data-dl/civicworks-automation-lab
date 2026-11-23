@@ -62,7 +62,7 @@ Video length 96 s. Real demo run 0.9 s; 16 passed.
     wrote GJF-0008 inspection_zone: Z3 -> Z4
     wrote GJF-0011 workshop_type: joinery -> finishing
     no decision yet: H-GJF-0005-network_affiliation, H-GJF-0014-certification_class
-    new tab 'Changes 2026-11-23'; backup Guild_Workshop_Master_20261123T221618.xlsx; 309 existing cells checked unchanged
+    new tab 'Changes 2026-11-23'; backup Guild_Workshop_Master_20261123T222312.xlsx; 309 existing cells checked unchanged
 
 == 6. Apply the same decisions again
   0 writes; 8 decisions already applied - nothing changed

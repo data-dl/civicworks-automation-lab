@@ -1,6 +1,6 @@
 # SafeSite Compliance Cycle - transcript
 
-Video length 102 s. Real demo run 2.0 s; 11 passed.
+Video length 102 s. Real demo run 1.7 s; 11 passed.
 
 - **00:00** SafeSite Compliance Cycle. A quarterly safety-return cycle: reminders, checks, escalations and two Word reports, with nothing sent and no final overwritten.
 - **00:07** 1. Plan 2026Q4: 12 facilities, 4 coordinators, returns due 2026-12-15. Twelve invented facilities and four coordinators. Returns are due 15 December; the calendar sets the reminder dates.

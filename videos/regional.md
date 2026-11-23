@@ -1,6 +1,6 @@
 # Regional Programs Analytics - transcript
 
-Video length 106 s. Real demo run 1.7 s; 11 passed.
+Video length 106 s. Real demo run 1.5 s; 11 passed.
 
 - **00:00** Regional Programs Analytics. Quarterly Excel reports for an arts network that refuse to be approved while the data is incomplete or wrong.
 - **00:07** 1. A fictional arts network: 4 regions, 16 venues, two service tiers. Sixteen invented venues send a CSV every quarter. This quarter's files carry five planted problems.

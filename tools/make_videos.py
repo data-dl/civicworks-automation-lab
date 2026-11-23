@@ -417,7 +417,8 @@ def main(keys: list[str]) -> int:
     tmp = WORK / "_frames"
     tmp.mkdir(parents=True, exist_ok=True)
     office = Office()
-    report = {}
+    stats_file = OUT / "videos.json"
+    report = json.loads(stats_file.read_text(encoding="utf-8")) if stats_file.exists() else {}
     try:
         for key in keys or list(SCRIPTS):
             print(f"== {key}")
@@ -429,13 +430,16 @@ def main(keys: list[str]) -> int:
             t = build(key, cap, shots)
             encode(t, OUT / f"{key}.mp4")
             write_captions(key, t, cap)
-            Image.open(shots[0][0]).save(OUT / f"{key}-still.png") if shots else None
+            subprocess.run([FFMPEG, "-loglevel", "error", "-y", "-ss", "40", "-i", str(OUT / f"{key}.mp4"),
+                            "-frames:v", "1", "-q:v", "4", str(OUT / f"{key}-poster.jpg")], check=True,
+                           creationflags=NO_WINDOW)
             report[key] = {"seconds": round(t.seconds), "real_run": round(cap.seconds, 1), "tests": cap.tests,
                            "mb": round((OUT / f"{key}.mp4").stat().st_size / 1e6, 1)}
             print(f"  video {report[key]['seconds']} s, {report[key]['mb']} MB")
     finally:
         office.quit()
-    (OUT / "videos.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    stats_file.write_text(json.dumps({k: report[k] for k in SCRIPTS if k in report}, indent=2) + "\n",
+                          encoding="utf-8")
     return 0
 
 

@@ -1,6 +1,6 @@
 # OpsPilot Control Center - transcript
 
-Video length 116 s. Real demo run 8.9 s; 15 passed.
+Video length 116 s. Real demo run 7.2 s; 15 passed.
 
 - **00:00** OpsPilot Control Center. One control room for the other pipelines that cannot do more than its contracts allow.
 - **00:07** 1. The registry: the only actions OpsPilot can take. The registry is the complete list of actions: typed inputs and an effect class. There is no 'run any command'.

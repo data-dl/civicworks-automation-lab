@@ -3,3 +3,6 @@ target-version = "py311"
 
 [lint]
 select = ["E", "F", "W", "I", "B", "UP"]
+
+[lint.per-file-ignores]
+"tools/build_video_page.py" = ["E501"]   # an HTML template reads better unwrapped
