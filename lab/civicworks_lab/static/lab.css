@@ -131,3 +131,16 @@ video { width: 100%; border-radius: 8px; background: #111; aspect-ratio: 16 / 9 
 .note { color: var(--muted); font-size: 13.5px }
 @media (max-width: 860px) { .runbox, .two { grid-template-columns: 1fr } .scenes { position: static } .top { flex-wrap: wrap } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+
+/* row-level changes */
+.rows h4 { margin: 14px 0 6px; font-size: 14px; font-weight: 600 }
+.rowgrid { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 4px }
+.rowgrid table { border-collapse: collapse; width: 100%; font: 12.5px/1.4 var(--mono) }
+.rowgrid th, .rowgrid td { padding: 5px 9px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis }
+.rowgrid th { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
+.rowgrid td.hit { background: var(--warn-soft); font-weight: 600 }
+.rowgrid td.hit s { color: var(--bad); font-weight: 400 }
+.rowgrid mark { background: none; color: var(--warn); font-weight: 700 }
+.rowgrid tr.addrow td { background: var(--ok-soft) }
+.rowgrid tr.delrow td { color: var(--muted); text-decoration: line-through }
+.rows details summary { cursor: pointer; padding: 4px 0 }

@@ -65,7 +65,7 @@ function home() {
     <div class="eyebrow">Your eight pipelines</div>
     <h1>Run each one, watch what it does, and learn why it is built that way.</h1>
     <p class="lede">Every pipeline here runs for real on invented data. Pick one and press <b>Guided run</b>: it stops before each scene,
-    asks what you think will happen, runs it, then shows you exactly which files and tables changed. Hover any underlined word for a plain meaning.</p>
+    asks what you think will happen, runs it, then shows you exactly which files, rows and cells changed. Hover any underlined word for a plain meaning.</p>
   </section>
   <div class="start">
     <a href="#/p/atlas/run"><b>Start here: a guided run of Atlas</b><span>The flagship: data checked, frozen, printed into 12 PDFs, verified, published.</span></a>
@@ -206,7 +206,36 @@ function guided(p, el) {
       ${files.length > 40 ? `<p class="note">...and ${files.length - 40} more (see All files).</p>` : ""}
       ${ch.tables.length ? `<span class="eyebrow">Database rows</span><table><tr><th>table</th><th>before</th><th>after</th></tr>
         ${ch.tables.map(t => `<tr><td><code>${esc(t.table.split("::")[1])}</code> <span class="note">${esc(t.table.split("::")[0])}</span></td><td>${t.before}</td><td>${t.after}</td></tr>`).join("")}</table>` : ""}
-      <p class="note">Click any file to open it here: spreadsheets, Word reports, PDF pages, databases and drafts.</p></div>`;
+      <p class="note">Click any file to open it here: spreadsheets, Word reports, PDF pages, databases and drafts.</p></div>
+      ${rowsView(ch)}`;
+  }
+  const srcName = s => { const [f, t] = s.split("::"); return t ? `<code>${esc(t)}</code> <span class="note">table in ${esc(f)}</span>`
+    : s.includes(" > ") ? `<code>${esc(s.split(" > ")[1])}</code> <span class="note">sheet in ${esc(s.split(" > ")[0])}</span>` : `<code>${esc(s)}</code>`; };
+  function grid(cols, rows) {   // rows: [{row, cls, cells:{i: html}}]
+    const n = Math.min(12, Math.max(cols.length, ...rows.map(r => r.row.length)));
+    return `<div class="rowgrid"><table><tr>${Array.from({ length: n }, (_, i) => `<th>${esc(cols[i] ?? "")}</th>`).join("")}</tr>
+      ${rows.map(r => `<tr class="${r.cls || ""}">${Array.from({ length: n }, (_, i) => r.cells && i in r.cells ? `<td class="hit">${r.cells[i]}</td>`
+        : `<td>${esc(r.row[i] ?? "")}</td>`).join("")}</tr>`).join("")}</table></div>`;
+  }
+  function rowsView(ch) {
+    const traced = ch.traced || [], rows = (ch.rows || []);
+    const edits = rows.filter(r => r.n_changed || (!r.new_source && (r.n_added || r.n_removed)));
+    const fresh = rows.filter(r => r.new_source);
+    if (!traced.length && !rows.length) return "";
+    const tracedHtml = traced.length ? `<div class="card rows"><span class="eyebrow">Traced to the exact rows</span>
+      <p class="note">Every record this scene's output names, found in the data. Highlighted cells hold the identifier.</p>
+      ${traced.slice(0, 6).map(t => `<h4>${srcName(t.source)}</h4>${grid(t.cols, t.rows.map(r => ({ row: r.row,
+        cells: Object.fromEntries(r.cells.map(i => [i, `<mark>${esc(r.row[i])}</mark>`])) })))}`).join("")}</div>` : "";
+    const editHtml = edits.length ? `<div class="card rows"><span class="eyebrow">Rows that changed</span>
+      <p class="note">Changed cells show <s>before</s> and after. Shaded rows were added; struck-through rows were removed.</p>
+      ${edits.slice(0, 6).map(r => `<h4>${srcName(r.source)} <span class="note">${[r.n_changed && r.n_changed + " changed", r.n_added && r.n_added + " added",
+        r.n_removed && r.n_removed + " removed"].filter(Boolean).join(", ")}</span></h4>${grid(r.cols, [
+        ...r.changed.map(c => ({ row: c.row, cells: Object.fromEntries(c.cells.map(i => [i, `<s>${esc(c.before[i] ?? "")}</s> ${esc(c.row[i] ?? "")}`])) })),
+        ...r.added.map(row => ({ row, cls: "addrow" })), ...r.removed.map(row => ({ row, cls: "delrow" }))])}`).join("")}</div>` : "";
+    const freshHtml = fresh.length ? `<div class="card rows"><span class="eyebrow">New data written</span><ul>${fresh.map(r =>
+      `<li><details><summary>${srcName(r.source)} <span class="note">${r.n_added} rows</span></summary>${grid(r.cols, r.added.map(row => ({ row })))}
+      ${r.n_added > r.added.length ? `<p class="note">First ${r.added.length} of ${r.n_added} shown.</p>` : ""}</details></li>`).join("")}</ul></div>` : "";
+    return tracedHtml + editHtml + freshHtml;
   }
   async function runCurrent() {
     if (!run) { const r = await api("/api/start", { key: p.key }); run = { id: r.run, status: "running", scene: 0 }; current = 1 }

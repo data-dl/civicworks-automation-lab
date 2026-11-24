@@ -140,6 +140,11 @@ button.btn{border:none;cursor:pointer;font:inherit}button.btn.ghost{border:1px s
 .deck{position:fixed;inset:0;background:var(--bg);display:grid;grid-template-rows:1fr auto}.slide{display:none;padding:6vh 8vw;align-content:center;gap:22px}
 .slide.on{display:grid}.slide h1{font-size:clamp(34px,5vw,58px);letter-spacing:-.02em}.slide .lede{font-size:clamp(17px,1.6vw,21px)}
 .deckbar{display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:1px solid var(--line);background:var(--panel);color:var(--muted)}
+.rh{margin:14px 0 2px;font-size:16px}.stepper h5{margin:10px 0 4px;font-size:13.5px;font-weight:600}.stepper .m{color:var(--muted);font-size:13px;font-weight:400}
+.rowgrid{overflow-x:auto;border:1px solid var(--line);border-radius:8px}.rowgrid table{border-collapse:collapse;width:100%;font:12px/1.4 var(--mono)}
+.rowgrid th,.rowgrid td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.rowgrid th{background:var(--soft,#eef2f7);color:var(--muted)}.rowgrid td.hit{background:#f7eedb;font-weight:600}.rowgrid td.hit s{color:var(--bad);font-weight:400}
+.rowgrid mark{background:none;color:#8a6214;font-weight:700}.rowgrid tr.addrow td{background:#e9f0f7}.rowgrid tr.delrow td{color:var(--muted);text-decoration:line-through}
 footer{border-top:1px solid var(--line);background:var(--panel)}footer .in{max-width:1180px;margin:0 auto;padding:22px 24px;color:var(--muted);font-size:14px;display:grid;gap:6px}
 @media(max-width:860px){.hero,.two{grid-template-columns:1fr}.top .in{flex-wrap:wrap}}
 """
@@ -249,12 +254,32 @@ STEP_JS = """
   const cls = t => /\\b(BLOCKED|REFUSED|FAILED|QUARANTINED|STOPPED|rejected)\\b|\\[x\\]|!!/.test(t) ? 'bad'
     : /\\b(PUBLISHED|APPROVED|COMPLETE|FINAL|accepted|verified|OK)\\b/.test(t) ? 'ok' : /\\[-\\]|held|stale|awaiting/.test(t) ? 'warn' : '';
   const e = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const src = s => { const [f, t] = s.split('::'); return t ? `<code>${e(t)}</code> <span class="m">table in ${e(f)}</span>`
+    : s.includes(' > ') ? `<code>${e(s.split(' > ')[1])}</code> <span class="m">sheet in ${e(s.split(' > ')[0])}</span>` : `<code>${e(s)}</code>`; };
+  function grid(cols, rows) {
+    const n = Math.min(10, Math.max(cols.length, ...rows.map(r => r.row.length)));
+    return `<div class="rowgrid"><table><tr>${Array.from({length: n}, (_, i) => `<th>${e(cols[i] ?? '')}</th>`).join('')}</tr>${rows.map(r =>
+      `<tr class="${r.cls || ''}">${Array.from({length: n}, (_, i) => r.cells && i in r.cells ? `<td class="hit">${r.cells[i]}</td>` : `<td>${e(r.row[i] ?? '')}</td>`).join('')}</tr>`).join('')}</table></div>`;
+  }
+  function rowsHtml(r) {
+    if (!r || (!(r.traced || []).length && !(r.edits || []).length && !(r.fresh || []).length)) return '';
+    let h = '';
+    if (r.traced.length) h += `<h4 class="rh">Traced to the exact rows</h4><p class="m">Every record this scene's output names, found in the data.</p>` +
+      r.traced.slice(0, 4).map(t => `<h5>${src(t.source)}</h5>` + grid(t.cols, t.rows.map(x => ({row: x.row,
+        cells: Object.fromEntries(x.cells.map(i => [i, `<mark>${e(x.row[i])}</mark>`]))})))).join('');
+    if (r.edits.length) h += `<h4 class="rh">Rows that changed</h4><p class="m">Changed cells show <s>before</s> and after; shaded rows were added, struck-through rows removed.</p>` +
+      r.edits.slice(0, 4).map(c => `<h5>${src(c.source)} <span class="m">${[c.n_changed && c.n_changed + ' changed', c.n_added && c.n_added + ' added', c.n_removed && c.n_removed + ' removed'].filter(Boolean).join(', ')}</span></h5>` +
+        grid(c.cols, [...c.changed.map(x => ({row: x.row, cells: Object.fromEntries(x.cells.map(i => [i, `<s>${e(x.before[i] ?? '')}</s> ${e(x.row[i] ?? '')}`]))})),
+          ...c.added.slice(0, 6).map(row => ({row, cls: 'addrow'})), ...c.removed.slice(0, 6).map(row => ({row, cls: 'delrow'}))])).join('');
+    if (r.fresh.length) h += `<p class="m"><b>New data written:</b> ${r.fresh.map(f => `${src(f.source)} (${f.rows} rows)`).join(', ')}</p>`;
+    return h;
+  }
   function draw() {
     const s = data[i];
     box.innerHTML = `<div class="stepnav">${data.map((x, n) => `<button class="${n === i ? 'on' : ''}" data-n="${n}">${n + 1}</button>`).join('')}</div>
       <h3>Scene ${i + 1} of ${data.length}: ${e(s.title)}</h3><p>${e(s.explain)}</p>
       <div class="pred"><b>Predict first:</b> ${e(s.predict)}</div>
-      ${shown ? `<pre class="term">${s.lines.map(l => `<span class="${cls(l)}">${e(l)}</span>`).join('\\n')}</pre><div class="ans"><b>What happened:</b> ${e(s.answer)}</div>`
+      ${shown ? `<pre class="term">${s.lines.map(l => `<span class="${cls(l)}">${e(l)}</span>`).join('\\n')}</pre><div class="ans"><b>What happened:</b> ${e(s.answer)}</div>${rowsHtml(s.rows)}`
               : `<button class="btn" id="reveal">Show what the real run did</button>`}
       <div class="ctas"><button class="btn ghost" id="prev" ${i ? '' : 'disabled'}>Previous scene</button>
       <button class="btn ghost" id="next" ${i < data.length - 1 ? '' : 'disabled'}>Next scene</button></div>`;
@@ -270,8 +295,11 @@ STEP_JS = """
 
 def stepper(p: dict) -> str:
     captured = captured_scenes(p["key"])
+    rows_file = DOCS / "data" / "rows" / f"{p['key']}.json"
+    rows = json.loads(rows_file.read_text(encoding="utf-8")) if rows_file.exists() else {}
     data = [{"title": captured.get(n, {}).get("title", f"Scene {n}"), "lines": captured.get(n, {}).get("lines", []),
-             **{k: s[k] for k in ("explain", "predict", "answer")}} for n, s in sorted(p["scenes"].items())]
+             "rows": rows.get(str(n), {}), **{k: s[k] for k in ("explain", "predict", "answer")}}
+            for n, s in sorted(p["scenes"].items())]
     if not any(d["lines"] for d in data):
         return ""
     payload = json.dumps(data).replace("</", "<\\/")

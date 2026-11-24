@@ -69,5 +69,10 @@ button.btn{border:none;cursor:pointer;font:inherit}button.btn.ghost{border:1px s
 .deck{position:fixed;inset:0;background:var(--bg);display:grid;grid-template-rows:1fr auto}.slide{display:none;padding:6vh 8vw;align-content:center;gap:22px}
 .slide.on{display:grid}.slide h1{font-size:clamp(34px,5vw,58px);letter-spacing:-.02em}.slide .lede{font-size:clamp(17px,1.6vw,21px)}
 .deckbar{display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:1px solid var(--line);background:var(--panel);color:var(--muted)}
+.rh{margin:14px 0 2px;font-size:16px}.stepper h5{margin:10px 0 4px;font-size:13.5px;font-weight:600}.stepper .m{color:var(--muted);font-size:13px;font-weight:400}
+.rowgrid{overflow-x:auto;border:1px solid var(--line);border-radius:8px}.rowgrid table{border-collapse:collapse;width:100%;font:12px/1.4 var(--mono)}
+.rowgrid th,.rowgrid td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.rowgrid th{background:var(--soft,#eef2f7);color:var(--muted)}.rowgrid td.hit{background:#f7eedb;font-weight:600}.rowgrid td.hit s{color:var(--bad);font-weight:400}
+.rowgrid mark{background:none;color:#8a6214;font-weight:700}.rowgrid tr.addrow td{background:#e9f0f7}.rowgrid tr.delrow td{color:var(--muted);text-decoration:line-through}
 footer{border-top:1px solid var(--line);background:var(--panel)}footer .in{max-width:1180px;margin:0 auto;padding:22px 24px;color:var(--muted);font-size:14px;display:grid;gap:6px}
 @media(max-width:860px){.hero,.two{grid-template-columns:1fr}.top .in{flex-wrap:wrap}}

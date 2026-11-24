@@ -32,7 +32,13 @@ def test_a_guided_run_pauses_between_scenes_and_reports_changes():
         server.next_scene(run)
         assert wait(run, "paused") == "paused" and run.scene == 2
         assert any("reconcile.sqlite::" in t["table"] for t in run.changes[2]["tables"])
-        for _ in range(5):
+        server.next_scene(run)
+        wait(run, "paused")
+        server.next_scene(run)
+        assert wait(run, "paused") == "paused" and run.scene == 4
+        cases = next(r for r in run.changes[4]["rows"] if r["source"].endswith("::match_case"))
+        assert cases["n_changed"] == 3 and all(c["cells"] for c in cases["changed"]), "decisions change exact cells"
+        for _ in range(3):
             server.next_scene(run)
             wait(run, "paused", 30) if run.scene < 6 else None
         assert wait(run, "done") == "done" and run.exit_code == 0

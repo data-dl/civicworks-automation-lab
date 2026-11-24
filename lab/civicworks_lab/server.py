@@ -27,6 +27,8 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
+from . import rowdiff
+
 ROOT = Path(__file__).resolve().parents[2]          # the repository
 LEARN = ROOT / "learn"
 STATIC = Path(__file__).with_name("static")
@@ -90,7 +92,7 @@ def snapshot(ws: Path) -> dict:
                 con.close()
             except sqlite3.Error:
                 pass
-    return {"files": files, "tables": tables}
+    return {"files": files, "tables": tables, "contents": rowdiff.contents(ws)}
 
 
 def diff(before: dict, after: dict) -> dict:
@@ -99,7 +101,8 @@ def diff(before: dict, after: dict) -> dict:
     removed = sorted(set(before["files"]) - set(after["files"]))
     tables = [{"table": k, "before": before["tables"].get(k, 0), "after": v}
               for k, v in sorted(after["tables"].items()) if before["tables"].get(k) != v]
-    return {"added": added, "changed": changed, "removed": removed, "tables": tables}
+    return {"added": added, "changed": changed, "removed": removed, "tables": tables,
+            "rows": rowdiff.changes(before.get("contents", {}), after.get("contents", {}))}
 
 
 def start_run(key: str) -> Run:
@@ -139,7 +142,11 @@ def _reader(run: Run) -> None:
 
 def _pause(run: Run, final: bool = False) -> None:
     snap = snapshot(run.workspace)
-    run.changes[run.scene] = diff(run.snapshots[-1], snap)
+    change = diff(run.snapshots[-1], snap)
+    with RUN_LOCK:
+        said = "\n".join(line["text"] for line in run.lines if line["scene"] == run.scene)
+    change["traced"] = rowdiff.trace(snap["contents"], said)
+    run.changes[run.scene] = change
     run.snapshots.append(snap)
     run.status = "done" if final else "paused"
 

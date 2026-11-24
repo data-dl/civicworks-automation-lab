@@ -40,7 +40,7 @@ cd atlas-license-directory && python -m atlas demo      # any project: run its d
 
 **The CivicWorks Lab** (`python -m civicworks_lab`) is a local web app that runs any pipeline one scene at
 a time: before each scene it explains what is about to happen and asks you to predict; after it, it shows
-the output and every file and database table that changed, and opens any spreadsheet, Word report, PDF
+the output, every file that changed, and the exact rows and cells that changed (with each record the output names traced back to its input row), and opens any spreadsheet, Word report, PDF
 page or database right in the page. It also holds the concepts, a glossary and question flashcards.
 
 ## What every pipeline does the same way
