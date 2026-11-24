@@ -18,6 +18,7 @@ from pathlib import Path
 
 from . import synth
 from .release import ReleaseResult, Workspace, consume, release, rollback, status_rows
+from .runkit import scene as announce
 
 AS_OF = date(2026, 11, 23)
 
@@ -40,7 +41,7 @@ def _print_status(ws: Workspace) -> None:
 
 
 def scene(n: int, title: str) -> None:
-    print(f"\n== {n}. {title}")
+    announce(n, title)
 
 
 def run_demo(out: Path, seed: int) -> int:

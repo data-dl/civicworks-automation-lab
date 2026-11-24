@@ -23,6 +23,7 @@ from pathlib import Path
 from . import dashboard
 from .executor import OpsPilot, RunSummary, SimulatedCrash
 from .registry import LanguageModelPlanner, Refused
+from .runkit import scene as announce
 
 
 def _print_run(s: RunSummary) -> None:
@@ -58,39 +59,39 @@ def run_demo(out: Path) -> int:
     _clear(out)
     ops = OpsPilot(out)
 
-    print("\n== 1. The registry: the only actions OpsPilot can take")
+    announce(1, "The registry: the only actions OpsPilot can take")
     for name, t in ops.tools.items():
         print(f"  {name:24} {t.effect:8} inputs: {', '.join(f'{k}:{v}' for k, v in t.inputs.items())}")
     print(f"  environment: {environment(out)}")
 
-    print("\n== 2. Plan 'publish-cycle' with the rules planner")
+    announce(2, "Plan 'publish-cycle' with the rules planner")
     for n, s in enumerate(ops.plan("publish-cycle"), start=1):
         after = f" (after {', '.join(s.after)})" if s.after else ""
         print(f"  {n}. {s.id:17} {s.tool}{after}")
 
-    print("\n== 3. Run it: write steps proceed, publish steps wait for a person")
+    announce(3, "Run it: write steps proceed, publish steps wait for a person")
     run_id = ops.start("publish-cycle")
     _print_run(ops.run(run_id))
 
-    print("\n== 4. A person approves the two publish steps")
+    announce(4, "A person approves the two publish steps")
     for step, role in (("badge-release", "release manager"), ("regional-approve", "program director")):
         print(f"  {ops.approve(run_id, step, role)}: {step} approved by the {role}")
 
-    print("\n== 5. Resume - and the machine stops right after the badge release")
+    announce(5, "Resume - and the machine stops right after the badge release")
     try:
         ops.run(run_id, crash_after="badge-release")
     except SimulatedCrash as exc:
         print(f"  !! {exc}; run marked interrupted")
 
-    print("\n== 6. Resume again: verified checkpoints are skipped, the rest finishes")
+    announce(6, "Resume again: verified checkpoints are skipped, the rest finishes")
     _print_run(ops.run(run_id))
 
-    print("\n== 7. A second goal: the roster project's own checks stop it")
+    announce(7, "A second goal: the roster project's own checks stop it")
     roster = ops.start("roster-cycle")
     ops.approve(roster, "roster-commit", "membership lead")
     _print_run(ops.run(roster))
 
-    print("\n== 8. Requests OpsPilot refuses (each one is logged)")
+    announce(8, "Requests OpsPilot refuses (each one is logged)")
     attempts = [("an unregistered command", lambda: ops.request("shell.exec", command="del /q *")),
                 ("a path outside the workspaces", lambda: ops.request("openbadge.init", workspace="../../Windows")),
                 ("a publish outside a planned, approved run", lambda: ops.request("openbadge.release",
@@ -108,7 +109,7 @@ def run_demo(out: Path) -> int:
     except sqlite3.DatabaseError as exc:
         print(f"  erasing the event log: REFUSED by the database - {exc}")
 
-    print("\n== 9. Read-only status page")
+    announce(9, "Read-only status page")
     page = dashboard.build(ops)
     events = ops.con.execute("SELECT COUNT(*) FROM event_log").fetchone()[0]
     print(f"  {page.relative_to(out).as_posix()} ({events} events, 2 runs); handoff notes in logs/<run>/HANDOFF.md")

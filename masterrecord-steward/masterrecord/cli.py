@@ -16,6 +16,7 @@ from pathlib import Path
 
 from . import synth
 from .apply import ApplyResult, apply_decisions
+from .runkit import scene as announce
 from .steward import ProposeResult, Workspace, propose
 
 TODAY = date(2026, 11, 23)
@@ -70,31 +71,31 @@ def run_demo(out: Path, seed: int) -> int:
     if out.exists():
         shutil.rmtree(out)
     ws = Workspace(out)
-    print("\n== 1. A guild master workbook and three feeds that disagree")
+    announce(1, "A guild master workbook and three feeds that disagree")
     init(ws, seed)
     print(f"  master: 30 workshops, an earlier Changes tab, reference rows at row {synth.REFERENCE_ROW}")
     print("  feeds: registry (authoritative), contract, site inspections")
 
-    print("\n== 2. Propose: resolve every field by the precedence matrix")
+    announce(2, "Propose: resolve every field by the precedence matrix")
     proposed = propose(ws, synth.CYCLE)
     _print_propose(proposed)
     print(f"  review queue: {Path(proposed.review_file).relative_to(out).as_posix()}")
 
-    print("\n== 3. The registrar decides: approve the changes, settle two holds, leave two for later")
+    announce(3, "The registrar decides: approve the changes, settle two holds, leave two for later")
     decisions = write_demo_decisions(ws.review / f"decisions_{synth.CYCLE}_signed.csv", proposed)
     print(f"  decisions file: {decisions.relative_to(out).as_posix()}")
 
-    print("\n== 4. Dry run: what would be written")
+    announce(4, "Dry run: what would be written")
     _print_apply(apply_decisions(ws, decisions, today=TODAY))
 
-    print("\n== 5. Apply: backup, write, prove nothing else moved")
+    announce(5, "Apply: backup, write, prove nothing else moved")
     _print_apply(apply_decisions(ws, decisions, apply=True, today=TODAY))
 
-    print("\n== 6. Apply the same decisions again")
+    announce(6, "Apply the same decisions again")
     r = apply_decisions(ws, decisions, apply=True, today=TODAY)
     print(f"  {len(r.planned)} writes; {len(r.already_applied)} decisions already applied - nothing changed")
 
-    print("\n== 7. Next proposal run: only the undecided holds remain")
+    announce(7, "Next proposal run: only the undecided holds remain")
     again = propose(ws, synth.CYCLE)
     print(f"  changes {len(again.changes)}, holds {len(again.holds)}: "
           + ", ".join(h["proposal_id"] for h in again.holds))

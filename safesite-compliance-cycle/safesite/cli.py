@@ -18,6 +18,7 @@ from pathlib import Path
 from . import synth
 from .cycle import CycleReport, Workspace, plan_quarter, run_cycle
 from .reports import produce
+from .runkit import scene as announce
 
 QUARTER, DUE = synth.QUARTER, synth.DUE
 
@@ -70,7 +71,7 @@ def run_demo(out: Path, seed: int) -> int:
     con = ws.open()
     facilities = synth.build_consortium(con, seed)
 
-    print(f"\n== 1. Plan {QUARTER}: 12 facilities, 4 coordinators, returns due {DUE}")
+    announce(1, f"Plan {QUARTER}: 12 facilities, 4 coordinators, returns due {DUE}")
     rows = plan_quarter(con, QUARTER, DUE)
     con.close()
     print(f"  {len(rows)} assignments; calendar: {write_calendar(ws, rows).relative_to(out).as_posix()}")
@@ -79,7 +80,7 @@ def run_demo(out: Path, seed: int) -> int:
                                       (date(2026, 12, 12), "Three days out: corrections come back"),
                                       (date(2026, 12, 18), "Past the deadline: escalate what is missing")],
                                      start=2):
-        print(f"\n== {n}. {title} (as of {day})")
+        announce(n, f"{title} (as of {day})")
         synth.deliver(ws.submissions, facilities, day, seed)
         _print_cycle(run_cycle(ws, QUARTER, day, arrivals()))
         if n == 3:
@@ -90,7 +91,7 @@ def run_demo(out: Path, seed: int) -> int:
     print(f"  final reports: {r.verdict} - {', '.join(r.blockers)}")
     print(f"  drafts instead: {', '.join(r.drafts)}")
 
-    print("\n== 5. Late returns arrive; the safety lead approves")
+    announce(5, "Late returns arrive; the safety lead approves")
     synth.deliver(ws.submissions, facilities, date(2026, 12, 20), seed)
     _print_cycle(run_cycle(ws, QUARTER, date(2026, 12, 20), arrivals()))
     r = produce(ws, QUARTER, approve_as="safety lead")
@@ -98,7 +99,7 @@ def run_demo(out: Path, seed: int) -> int:
     r = produce(ws, QUARTER, approve_as="safety lead")
     print(f"  approve again: {r.verdict}")
 
-    print("\n== 6. Folders kept apart")
+    announce(6, "Folders kept apart")
     for folder in (ws.working, ws.qa, ws.final, ws.outbox):
         files = sorted(p.name for p in (folder / QUARTER).iterdir())
         print(f"  {folder.name}/{QUARTER}: {len(files)} file(s), e.g. {files[0]}")

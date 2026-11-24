@@ -13,6 +13,7 @@ from pathlib import Path
 
 from . import synth
 from .pipeline import QuarterResult, Workspace, run_quarter
+from .runkit import scene as announce
 
 
 def _print(r: QuarterResult) -> None:
@@ -42,27 +43,27 @@ def run_demo(out: Path, seed: int) -> int:
         shutil.rmtree(out)
     ws = Workspace(out)
 
-    print("\n== 1. A fictional arts network: 4 regions, 16 venues, two service tiers")
+    announce(1, "A fictional arts network: 4 regions, 16 venues, two service tiers")
     info = init(ws, seed)
     print(f"  {len(info['venues'])} venues; 2026Q2 submissions clean; 2026Q3 has planted problems:")
     for kind, where in info["planted"].items():
         print(f"    {kind}: {where}")
 
-    print("\n== 2. Last quarter: checks pass, the program director approves it")
+    announce(2, "Last quarter: checks pass, the program director approves it")
     _print(run_quarter(ws, "2026Q2", approve_as="program director", seed=seed))
 
-    print("\n== 3. This quarter: draft packs are built, but approval is blocked")
+    announce(3, "This quarter: draft packs are built, but approval is blocked")
     _print(run_quarter(ws, "2026Q3", approve_as="program director", seed=seed))
 
-    print("\n== 4. Reminders went out; the late and corrected files arrive")
+    announce(4, "Reminders went out; the late and corrected files arrive")
     for name in synth.write_late_files(ws.inbox, info["venues"], "2026Q3", seed):
         print(f"    received {name}")
     _print(run_quarter(ws, "2026Q3", approve_as="program director", seed=seed))
 
-    print("\n== 5. Someone re-runs approval: the approved quarter is not replaced")
+    announce(5, "Someone re-runs approval: the approved quarter is not replaced")
     _print(run_quarter(ws, "2026Q3", approve_as="program director", seed=seed))
 
-    print("\n== 6. What was produced")
+    announce(6, "What was produced")
     for folder in (ws.approved / "2026Q3" / "v1", ws.outbox / "2026Q3"):
         print(f"  {folder.relative_to(out).as_posix()}/")
         for p in sorted(folder.iterdir()):

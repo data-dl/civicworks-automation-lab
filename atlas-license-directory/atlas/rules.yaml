@@ -1,0 +1,41 @@
+# The QA rule registry. Every rule says how serious it is, why it exists, what evidence it shows,
+# how to fix it, and whether a person must approve before the run can continue.
+#   blocking  - the directory cannot be frozen or printed until it is fixed
+#   advisory  - reported in the QA summary; printing may go ahead
+rules:
+  - id: duplicate_member_id
+    severity: blocking
+    rationale: One id must mean one person; otherwise listings attach to the wrong craftsperson.
+    remediation: Give each person their own member id in the members source.
+  - id: missing_endorsement
+    severity: blocking
+    rationale: Only endorsed craftspeople may be listed.
+    remediation: Add the endorsement or withdraw the listing.
+  - id: expired_endorsement
+    severity: blocking
+    rationale: A directory must not advertise a craftsperson whose endorsement ends before the edition goes out.
+    remediation: Record the renewal, or withdraw the listing for this period.
+  - id: invalid_dates
+    severity: blocking
+    rationale: A date that does not exist (30 February) or ends before it starts cannot be trusted.
+    remediation: Correct the date in the endorsements source.
+  - id: unknown_craft
+    severity: blocking
+    rationale: Every listing is printed under a craft section; an unmapped craft has nowhere to go.
+    remediation: Fix the spelling or add an alias in the craft map.
+  - id: orphaned_studio
+    severity: blocking
+    rationale: A studio in a district that does not exist cannot be placed in any district edition.
+    remediation: Correct the district code in the studios source.
+  - id: contradictory_audience
+    severity: blocking
+    rationale: A person who did not opt in to public listing must not appear in the public edition.
+    remediation: Remove the public placement or record the opt-in.
+  - id: missing_venue_token
+    severity: advisory
+    rationale: Listings print without a venue reference; readers can still find the studio by name.
+    remediation: Fill in the studio's venue token.
+  - id: possible_duplicate_person
+    severity: advisory
+    rationale: Two ids with nearly identical names may be one person entered twice. Never merged automatically.
+    remediation: A directory editor checks the pair in the review report.

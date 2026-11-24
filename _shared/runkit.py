@@ -76,6 +76,15 @@ def unique_dir(parent: str | Path, stem: str) -> Path:
             n += 1
 
 
+def scene(number: int, title: str) -> None:
+    """Announce a demo scene. With CIVICWORKS_STEP=1 the demo waits (reads a line from stdin) before every
+    scene after the first, so a viewer such as the CivicWorks Lab can show the workspace between scenes."""
+    if number > 1 and os.environ.get("CIVICWORKS_STEP") == "1":
+        print(f"@@ waiting before scene {number}", flush=True)
+        sys.stdin.readline()
+    print(f"\n== {number}. {title}", flush=True)
+
+
 def environment() -> dict:
     """Enough to reproduce a run; deliberately no host name, user name or paths."""
     return {"python": platform.python_version(), "os": platform.system(), "os_release": platform.release(),

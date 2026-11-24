@@ -17,6 +17,7 @@ from pathlib import Path
 from . import synth
 from .commit import commit
 from .reconcile import Recon, Workspace, reconcile, record_decisions
+from .runkit import scene as announce
 
 
 def _print(r: Recon) -> None:
@@ -38,20 +39,20 @@ def run_demo(out: Path, seed: int) -> int:
         shutil.rmtree(out)
     ws = Workspace(out)
     cycle = synth.CYCLE
-    print("\n== 1. This month's inputs: access-system roster, last month's approvals, new registrations")
+    announce(1, "This month's inputs: access-system roster, last month's approvals, new registrations")
     info = synth.build_inputs(ws.inputs, seed)
     for kind, where in info["planted"].items():
         print(f"  planted {kind}: {where}")
 
-    print("\n== 2. Reconcile: exact matches decided, everything else held")
+    announce(2, "Reconcile: exact matches decided, everything else held")
     r = reconcile(ws, cycle)
     _print(r)
 
-    print("\n== 3. Try to approve before review")
+    announce(3, "Try to approve before review")
     res = commit(ws, cycle, "membership lead")
     print(f"  {res.verdict}; draft to space admins: {', '.join(res.drafts)}")
 
-    print("\n== 4. A reviewer decides the held cases")
+    announce(4, "A reviewer decides the held cases")
     decisions = ws.inputs / cycle / "decisions.csv"
     choice = {"possible-id-change": "same-person", "missing-id": "same-person", "possible-duplicate": "same-person"}
     with decisions.open("w", newline="", encoding="utf-8") as f:
@@ -64,14 +65,14 @@ def run_demo(out: Path, seed: int) -> int:
     print(f"  recorded ({len(problems)} problems)")
     _print(reconcile(ws, cycle))
 
-    print("\n== 5. Approve")
+    announce(5, "Approve")
     res = commit(ws, cycle, "membership lead")
     print(f"  {res.verdict}: {', '.join(res.files)}")
 
-    print("\n== 6. Run it again: same inputs, same decisions")
+    announce(6, "Run it again: same inputs, same decisions")
     print(f"  {commit(ws, cycle, 'membership lead').verdict}")
 
-    print("\n== 7. A late registration arrives after approval")
+    announce(7, "A late registration arrives after approval")
     synth.late_registration(ws.inputs)
     print(f"  {commit(ws, cycle, 'membership lead').verdict}")
     res = commit(ws, cycle, "membership lead", supersede="late registration REG-2611-04")

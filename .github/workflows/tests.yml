@@ -9,30 +9,33 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      PROJECTS: >-
+        atlas-license-directory:atlas openbadge-registry-publisher:openbadge
+        regional-programs-analytics:regional ledgerguard-data-quality:ledgerguard
+        safesite-compliance-cycle:safesite masterrecord-steward:masterrecord
+        reconcilehub:reconcilehub opspilot-control-center:opspilot
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: install all six projects
-        run: >
-          python -m pip install
-          -e "./openbadge-registry-publisher[dev]" -e "./regional-programs-analytics[dev]"
-          -e "./safesite-compliance-cycle[dev]" -e "./masterrecord-steward[dev]"
-          -e "./reconcilehub[dev]" -e "./opspilot-control-center[dev]"
-      - run: ruff check openbadge-registry-publisher regional-programs-analytics safesite-compliance-cycle masterrecord-steward reconcilehub opspilot-control-center
+      - name: install all eight projects
+        shell: bash
+        run: |
+          args=""
+          for pair in $PROJECTS; do args="$args -e ./${pair%%:*}[dev]"; done
+          python -m pip install $args
+      - name: lint
+        shell: bash
+        run: ruff check $(for pair in $PROJECTS; do echo "${pair%%:*}"; done) tools
       - name: tests, project by project
         shell: bash
         run: |
-          for p in openbadge-registry-publisher regional-programs-analytics safesite-compliance-cycle \
-                   masterrecord-steward reconcilehub opspilot-control-center; do
-            (cd "$p" && python -m pytest -q) || exit 1
-          done
+          for pair in $PROJECTS; do (cd "${pair%%:*}" && python -m pytest -q) || exit 1; done
       - name: every demo runs (from its own folder; the repo root has a folder named like one package)
         shell: bash
         run: |
-          for pair in openbadge-registry-publisher:openbadge regional-programs-analytics:regional \
-                      safesite-compliance-cycle:safesite masterrecord-steward:masterrecord \
-                      reconcilehub:reconcilehub opspilot-control-center:opspilot; do
+          for pair in $PROJECTS; do
             (cd "${pair%%:*}" && python -m "${pair##*:}" demo --out build/ci-demo > /dev/null) || exit 1
           done

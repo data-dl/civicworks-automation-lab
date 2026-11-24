@@ -70,6 +70,31 @@ tools:
     effect: publish
     outputs: [snapshots/2026-11/v1/approved_roster.csv]
 
+  atlas.generate:
+    module: atlas
+    argv: [generate, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: write
+    outputs: [sources/2026-11/members.csv, sources/2026-11/listings.csv]
+  atlas.publish:
+    module: atlas
+    argv: [run, --workspace, "{workspace}", --approve, "{role}"]
+    inputs: {workspace: workspace, role: role}
+    effect: publish
+    outputs: [published/2026-11/MANIFEST.json]
+  ledgerguard.init:
+    module: ledgerguard
+    argv: [init, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: write
+    outputs: [sources/roster.csv, sources/authorizations.csv]
+  ledgerguard.daily:
+    module: ledgerguard
+    argv: [run, --workspace, "{workspace}"]
+    inputs: {workspace: workspace}
+    effect: write
+    outputs: [exports/2026-11-23/qualification_mapping.csv]
+
 # Goals the rules-based planner knows: steps, their parameters, and what each waits for.
 goals:
   publish-cycle:
@@ -90,3 +115,10 @@ goals:
       - {id: roster-init, tool: reconcilehub.init, project: reconcilehub}
       - {id: roster-check, tool: reconcilehub.reconcile, project: reconcilehub, after: [roster-init]}
       - {id: roster-commit, tool: reconcilehub.commit, project: reconcilehub, after: [roster-check]}
+  directory-cycle:
+    description: equipment QA runs, then this month's craft directory is checked, printed and published
+    steps:
+      - {id: ledger-init, tool: ledgerguard.init, project: ledgerguard}
+      - {id: ledger-daily, tool: ledgerguard.daily, project: ledgerguard, after: [ledger-init]}
+      - {id: atlas-sources, tool: atlas.generate, project: atlas}
+      - {id: atlas-publish, tool: atlas.publish, project: atlas, after: [atlas-sources, ledger-daily]}
