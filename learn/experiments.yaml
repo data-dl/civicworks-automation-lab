@@ -1,0 +1,309 @@
+# One-click experiments. Each one changes the real input data right after scene 1 (when the inputs exist
+# and nothing has read them yet), then the real pipeline runs on. The Lab runs a normal run beside it and
+# shows only the lines of output that the change made different. See lab/civicworks_lab/experiments.py.
+#
+# predict:  the question to answer before running
+# look_for: what the real run shows (checked by tools/record_experiments.py, which fails if nothing changes)
+
+atlas:
+  experiments:
+    - id: lapse
+      title: Let one craftsperson's endorsement lapse
+      plain: Member M0001's endorsement is changed to end on 1 October 2026 - before the December edition.
+      predict: Does the directory still print? If not, who is named, and at which stage does it stop?
+      look_for: A new expired_endorsement finding names M0001. The editor's fixes only repair the records they knew about, so the release stays blocked - one bad row stops all twelve PDFs.
+      edits:
+        - {csv: "sources/*/endorsements.csv", where: {member_id: M0001}, set: {valid_to: "2026-10-01"}}
+    - id: consent
+      title: A craftsperson withdraws consent to be listed publicly
+      plain: Member M0001 still has a listing in the public edition, but their public_opt_in is changed to 0.
+      predict: Which rule should catch this, and why is it blocking rather than a warning?
+      look_for: contradictory_audience blocks the release and names M0001. The editor's fix then withdraws every public listing for people who did not opt in - now two instead of one - and the release goes ahead without them. Publishing someone who said no is never acceptable, so it cannot be a warning.
+      edits:
+        - {csv: "sources/*/members.csv", where: {member_id: M0001}, set: {public_opt_in: "0"}}
+
+openbadge:
+  experiments:
+    - id: impossible-date
+      title: Give a badge an expiry date before it was issued
+      plain: The first badge in the database is made to expire on 1 January 2020, years before it was issued.
+      predict: Will the very first public release still go out? What happens to the "latest" pointer?
+      look_for: Validation blocks the first release and names the badge, so no file ever goes live and the pointer never moves.
+      edits:
+        - {sqlite: registry.sqlite, sql: "UPDATE badge SET expiry_date = '2020-01-01' WHERE row_id = 1"}
+    - id: unknown-type
+      title: Issue a badge of a type that does not exist
+      plain: The first badge's type is changed to GLASS-WIZARD, which is not in the badge_type table.
+      predict: The database does not enforce this link on its own here. Does the pipeline still catch it?
+      look_for: The release is blocked by controlled_vocabulary, naming the badge and the type GLASS-WIZARD. (This experiment found a real bug - the badge used to vanish silently from the file - and the fix is covered by a test.)
+      edits:
+        - {sqlite: registry.sqlite, sql: "UPDATE badge SET badge_type = 'GLASS-WIZARD' WHERE row_id = 1"}
+
+regional:
+  experiments:
+    - id: totals
+      title: A venue's total stops adding up
+      plain: In Eastmere venue HV-EM01's quarter-3 file, the attendance total is changed to 1400 while its parts still add up to 1309.
+      predict: The venue's file arrived on time. Does the quarter get approved anyway?
+      look_for: totals_reconcile now names HV-EM01 (1400 reported, parts add up to 1309). Approval stays blocked even after the late and corrected files arrive, and nothing is published for the quarter.
+      edits:
+        - {csv: "inbox/2026Q3/HV-EM01_v1.csv", where: {metric_code: attendance_total}, set: {amount: "1400"}}
+    - id: missing-venue
+      title: A venue never sends its quarter-3 file
+      plain: HV-EM01's quarter-3 file is deleted before the pipeline reads the inbox.
+      predict: Will the report be built with 15 venues instead of 16, or will it stop?
+      look_for: missing_contributor names HV-EM01. The report is never approved with a venue silently left out.
+      edits:
+        - {file: "inbox/2026Q3/HV-EM01_v1.csv", delete: true}
+
+ledgerguard:
+  experiments:
+    - id: blank-serial
+      title: Blank out a serial number in the source system
+      plain: Equipment EQ-0001's serial_token is erased in the registry database.
+      predict: The export still "succeeds". Which check notices, and is EQ-0001 named?
+      look_for: attribute_completeness reports one more exception and names EQ-0001; the export is still published as one verified set.
+      edits:
+        - {sqlite: "sources/registry.sqlite", sql: "UPDATE equipment SET serial_token = '' WHERE equipment_id = 'EQ-0001'"}
+    - id: no-authorisation
+      title: Remove every authorisation for one technician
+      plain: All of technician T-001's rows are deleted from the authorisations file, but T-001 stays active on the roster.
+      predict: What should happen to an active technician who is no longer allowed to service anything?
+      look_for: active_eligibility names T-001 as active with no valid authorisation.
+      edits:
+        - {csv: "sources/authorizations.csv", where: {technician_id: T-001}, delete: true}
+
+safesite:
+  experiments:
+    - id: extension
+      title: Give one late facility an extension
+      plain: Facility F11 normally misses the 15 December deadline. Its return is made due on 31 December instead.
+      predict: Does F11 still get a T-3 reminder and an overdue escalation? Does the final report still wait for it?
+      look_for: F11 drops out of the T-3 and overdue drafts and gets a T-14 reminder for its new date instead; its return is then accepted on time, so two fewer drafts are written. The final report still waits on 18 December - F11 is now "open" rather than "overdue". Nothing about the other ten facilities changes.
+      edits:
+        - {sqlite: safesite.sqlite, sql: "UPDATE assignment SET due_at = '2026-12-31' WHERE assignment_id = '2026Q4-F11'"}
+    - id: no-coordinator
+      title: Point a facility at a coordinator who does not exist
+      plain: Facility F01's assignment is given coordinator C9, who is not in the coordinator table.
+      predict: Will the database accept it? If it does, who would the reminder go to?
+      look_for: The database refuses the change - the coordinator link is a foreign key it enforces - so the run carries on exactly as normal. A constraint stops bad data before any code has to.
+      edits:
+        - {sqlite: safesite.sqlite, sql: "PRAGMA foreign_keys = ON; UPDATE assignment SET coordinator_id = 'C9' WHERE assignment_id = '2026Q4-F01'"}
+
+masterrecord:
+  experiments:
+    - id: registry-class
+      title: The authoritative registry changes a workshop's class
+      plain: The registry feed says GJF-0001 is now a Master (it was a Fellow).
+      predict: The registry is the authority for certification class. Is this held for a person or proposed as a change?
+      look_for: A new change is proposed for GJF-0001, approved by the registrar and written to the Excel master - in exactly one cell.
+      edits:
+        - {csv: "feeds/*/registry.csv", where: {entity_id: GJF-0001}, set: {certification_class: Master}}
+    - id: feeds-disagree
+      title: Two feeds disagree on a field with no single authority
+      plain: The contract feed says GJF-0001 joined Coastal Ring; the registry still says independent.
+      predict: Neither source is the authority for network affiliation. What does the pipeline do?
+      look_for: GJF-0001 is held for a person to decide - the pipeline never picks a winner on a guess.
+      edits:
+        - {csv: "feeds/*/contract.csv", where: {entity_id: GJF-0001}, set: {network_affiliation: Coastal Ring}}
+
+reconcilehub:
+  experiments:
+    - id: name-typo
+      title: Mistype one person's name in the access system
+      plain: FC-00002 Rue Tallowmere becomes "Rue Tallowmare" in this month's access roster.
+      predict: Same member id, slightly different name. Is that a new person, a change, or nothing?
+      look_for: A note reports that FC-00002's name differs between the access system and the approval. Access is not changed - the id matches - but a person is told. (This experiment found that the drift used to pass silently; the note and its test were added.)
+      edits:
+        - {csv: "inputs/*/current_roster.csv", where: {member_id: FC-00002}, set: {display_name: Rue Tallowmare}}
+    - id: leaver
+      title: Someone disappears from the access system
+      plain: FC-00004 Ivo Dunmarrow is deleted from this month's access roster but is still approved.
+      predict: Should the approved roster drop them automatically?
+      look_for: The pipeline proposes ADD FC-00004 - the access system must match what was approved, so an approved person who disappeared is put back, not dropped.
+      edits:
+        - {csv: "inputs/*/current_roster.csv", where: {member_id: FC-00004}, delete: true}
+
+opspilot:
+  experiments: []
+  note: OpsPilot runs the other pipelines, so its experiments are the requests it refuses (scene 8) and the crash in scene 5. Try the experiments on the other seven to see what OpsPilot's tools do.
+
+# Questions to ask each pipeline's database in the SQL console (Lab: "Query the data"; site: in the browser).
+# Each one teaches a SQL idea; together they cover joins, grouping, CTEs, window functions, anti-joins and dates.
+queries:
+  atlas:
+    db: atlas.sqlite
+    list:
+      - title: Approved listings per district and edition
+        teaches: joining three tables and grouping
+        sql: |
+          SELECT d.label AS district, p.edition_code AS edition, COUNT(*) AS listings
+          FROM placement p
+          JOIN studio s   ON s.studio_id = p.studio_id
+          JOIN district d ON d.district_id = s.district_id
+          WHERE p.approved = 1
+          GROUP BY d.label, p.edition_code
+          ORDER BY district, edition;
+      - title: Endorsements that end soonest
+        teaches: a window function (RANK) over a join
+        sql: |
+          SELECT m.invented_name, e.craft_code, e.valid_to,
+                 RANK() OVER (ORDER BY e.valid_to) AS ends_soonest
+          FROM endorsement e JOIN guild_member m ON m.member_id = e.member_id
+          ORDER BY e.valid_to
+          LIMIT 10;
+      - title: Who approved each release
+        teaches: reading the audit table
+        sql: |
+          SELECT release_id, period, stage, approved_by, pdf_count, substr(snapshot_hash, 1, 12) AS snapshot
+          FROM directory_release ORDER BY release_id;
+  openbadge:
+    db: registry.sqlite
+    list:
+      - title: Badges by type and status
+        teaches: LEFT JOIN, so unknown types still show up
+        sql: |
+          SELECT COALESCE(t.label, '(unknown type: ' || b.badge_type || ')') AS badge, b.status, COUNT(*) AS n
+          FROM badge b LEFT JOIN badge_type t ON t.code = b.badge_type
+          GROUP BY 1, 2 ORDER BY 1, 2;
+      - title: Which releases ever went live
+        teaches: LEFT JOIN to find what has no match
+        sql: |
+          SELECT r.release_id, r.record_count, r.technical_status, r.consumer_status,
+                 CASE WHEN p.release_id IS NULL THEN 'never live' ELSE 'went live ' || p.switched_at END AS pointer
+          FROM registry_release r LEFT JOIN pointer_history p ON p.release_id = r.release_id
+          ORDER BY r.release_id;
+      - title: Learners with the most badges
+        teaches: GROUP BY with a window function (DENSE_RANK)
+        sql: |
+          SELECT learner_id, COUNT(*) AS badges, DENSE_RANK() OVER (ORDER BY COUNT(*) DESC) AS rank
+          FROM badge GROUP BY learner_id ORDER BY badges DESC, learner_id LIMIT 10;
+  regional:
+    db: regional.sqlite
+    list:
+      - title: Attendance by region, quarter by quarter
+        teaches: joins plus a filter on the accepted submissions only
+        sql: |
+          SELECT r.label AS region, s.quarter_id, SUM(m.amount) AS attendance
+          FROM measure m
+          JOIN submission s ON s.submission_id = m.submission_id
+          JOIN venue v      ON v.venue_id = s.venue_id
+          JOIN region r     ON r.region_code = v.region_code
+          WHERE m.metric_code = 'attendance_total' AND s.status = 'accepted'
+          GROUP BY r.label, s.quarter_id ORDER BY region, s.quarter_id;
+      - title: Each venue's change since last quarter
+        teaches: a CTE and LAG(), the classic period-over-period query
+        sql: |
+          WITH totals AS (
+            SELECT s.venue_id, s.quarter_id, m.amount AS attendance
+            FROM measure m JOIN submission s ON s.submission_id = m.submission_id
+            WHERE m.metric_code = 'attendance_total' AND s.status = 'accepted')
+          SELECT venue_id, quarter_id, attendance,
+                 attendance - LAG(attendance) OVER (PARTITION BY venue_id ORDER BY quarter_id) AS change
+          FROM totals ORDER BY venue_id, quarter_id;
+      - title: Every file received, and why it was used or not
+        teaches: reading the evidence table
+        sql: |
+          SELECT venue_id, quarter_id, version, file_name, status, COALESCE(reason, '') AS reason
+          FROM submission ORDER BY quarter_id, venue_id, version;
+  ledgerguard:
+    db: ledgerguard.sqlite
+    list:
+      - title: Every export, expected rows against rows received
+        teaches: a join that puts the evidence side by side
+        sql: |
+          SELECT q.run_date, j.job_code, j.expected_rows, j.observed_rows, j.state, COALESCE(j.reason, '') AS reason
+          FROM export_job j JOIN qa_run q ON q.run_id = j.run_id
+          ORDER BY q.run_date, j.job_code;
+      - title: Each day's verdict and how many exports failed
+        teaches: conditional aggregation (SUM of CASE)
+        sql: |
+          SELECT q.run_date, q.verdict,
+                 SUM(CASE WHEN j.state <> 'ok' THEN 1 ELSE 0 END) AS failed_exports
+          FROM qa_run q JOIN export_job j ON j.run_id = q.run_id
+          GROUP BY q.run_id ORDER BY q.run_date;
+      - title: What was archived, with its fingerprint
+        teaches: reading the restore index
+        sql: |
+          SELECT file_name, substr(sha256, 1, 12) AS sha256, archive_path FROM archive_item ORDER BY archive_id;
+  safesite:
+    db: safesite.sqlite
+    list:
+      - title: How late each late return was
+        teaches: date arithmetic with julianday()
+        sql: |
+          SELECT assignment_id, due_at, submitted_on,
+                 CAST(julianday(submitted_on) - julianday(due_at) AS INTEGER) AS days_late
+          FROM assignment WHERE submitted_on > due_at ORDER BY days_late DESC;
+      - title: Observations by severity and area
+        teaches: grouping on two columns
+        sql: |
+          SELECT severity, area, COUNT(*) AS observations
+          FROM observation GROUP BY severity, area ORDER BY severity, observations DESC;
+      - title: Every reminder drafted, in order
+        teaches: reading the reminder log
+        sql: |
+          SELECT as_of, assignment_id, kind FROM reminder ORDER BY as_of, assignment_id;
+  masterrecord:
+    db: steward.sqlite
+    list:
+      - title: Where the three feeds disagree
+        teaches: GROUP BY ... HAVING with GROUP_CONCAT
+        sql: |
+          SELECT entity_id, field_code, GROUP_CONCAT(source_code || '=' || asserted_value, '; ') AS sources
+          FROM source_assertion
+          GROUP BY entity_id, field_code
+          HAVING COUNT(DISTINCT asserted_value) > 1
+          ORDER BY entity_id, field_code;
+      - title: Every decision and the cell it wrote
+        teaches: a three-table audit trail with a LEFT JOIN
+        sql: |
+          SELECT p.entity_id, p.field_code, p.current_value AS was, d.value AS now, d.approver_role,
+                 COALESCE(h.sheet_name, '(not written)') AS written_to
+          FROM stewardship_decision d
+          JOIN proposal p ON p.proposal_id = d.proposal_id
+          LEFT JOIN history_write h ON h.decision_id = d.decision_id
+          ORDER BY p.entity_id;
+      - title: Changes, holds and exclusions
+        teaches: a simple count by category
+        sql: |
+          SELECT kind, COUNT(*) AS proposals FROM proposal GROUP BY kind;
+  reconcilehub:
+    db: reconcile.sqlite
+    list:
+      - title: In the access system but never approved
+        teaches: an anti-join (NOT EXISTS) - the heart of reconciliation
+        sql: |
+          SELECT DISTINCT e.participant_id, e.display_name, e.access_role
+          FROM roster_entry e JOIN roster_snapshot s ON s.snapshot_id = e.snapshot_id AND s.source_code = 'current'
+          WHERE e.participant_id IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM roster_entry p JOIN roster_snapshot ps ON ps.snapshot_id = p.snapshot_id
+            WHERE ps.source_code IN ('prior', 'registrations') AND p.participant_id = e.participant_id)
+          ORDER BY e.participant_id;
+      - title: Every case a person had to decide
+        teaches: reading the review queue
+        sql: |
+          SELECT case_id, kind, ROUND(confidence, 2) AS confidence, disposition, COALESCE(reviewer, '') AS reviewer
+          FROM match_case ORDER BY case_id;
+      - title: Rows per source snapshot
+        teaches: LEFT JOIN with COUNT
+        sql: |
+          SELECT s.source_code, s.cycle, COUNT(e.entry_id) AS rows, substr(s.sha256, 1, 12) AS sha256
+          FROM roster_snapshot s LEFT JOIN roster_entry e ON e.snapshot_id = s.snapshot_id
+          GROUP BY s.snapshot_id ORDER BY s.snapshot_id;
+  opspilot:
+    db: ops.sqlite
+    list:
+      - title: Each step's checkpoint
+        teaches: the table that makes resuming safe
+        sql: |
+          SELECT run_id, stage_id, status, exit_code, substr(artifact_hash, 1, 12) AS artifact
+          FROM checkpoint ORDER BY run_id, finished_at;
+      - title: Who approved which step
+        teaches: reading the approvals table
+        sql: |
+          SELECT run_id, stage_id, role, approved_at FROM authorization ORDER BY approved_at;
+      - title: Try to rewrite history (it will refuse)
+        teaches: a trigger that makes a table append-only
+        sql: |
+          UPDATE event_log SET event_type = 'edited by hand' WHERE event_id = 1;

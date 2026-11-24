@@ -12,6 +12,7 @@ import json
 import os
 import platform
 import sys
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from email.message import EmailMessage
@@ -37,6 +38,23 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def replace(src: str | Path, dst: str | Path, attempts: int = 8) -> None:
+    """os.replace - one atomic rename - that tolerates Windows briefly holding a just-written file or folder.
+
+    A virus scanner or the search indexer can keep a new file open for a moment, so the rename fails with
+    "access denied" although nothing is wrong. Waiting and retrying (about 6 seconds at most) is safe because
+    the rename either happens completely or not at all; a failure that persists still raises.
+    """
+    for n in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if n == attempts - 1:
+                raise
+            time.sleep(0.05 * 2 ** n)
+
+
 def atomic_write_bytes(path: str | Path, data: bytes) -> Path:
     """Write to a temporary file beside the target, flush it to disk, then rename it into place."""
     path = Path(path)
@@ -46,7 +64,7 @@ def atomic_write_bytes(path: str | Path, data: bytes) -> Path:
         f.write(data)
         f.flush()
         os.fsync(f.fileno())
-    os.replace(temp, path)
+    replace(temp, path)
     return path
 
 

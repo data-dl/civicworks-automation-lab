@@ -66,6 +66,9 @@ def run_demo(out: Path, seed: int) -> int:
     announce(6, "What was produced")
     for folder in (ws.approved / "2026Q3" / "v1", ws.outbox / "2026Q3"):
         print(f"  {folder.relative_to(out).as_posix()}/")
+        if not folder.exists():      # e.g. the quarter never passed its checks, so nothing was approved
+            print("    (nothing - the quarter was not approved)")
+            continue
         for p in sorted(folder.iterdir()):
             print(f"    {p.name}")
     print("  Drafts are never sent: the outbox holds .eml files for a person to review.")

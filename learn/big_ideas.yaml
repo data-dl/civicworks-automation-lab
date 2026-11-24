@@ -69,4 +69,4 @@ ideas:
       on fresh Linux and Windows machines after every change. Every run writes a manifest and readable
       reports.
     why: 'Saying "it works on my machine" is not proof; a test anyone can rerun is.'
-    where: 106 tests across eight projects; the CI badge on the repository.
+    where: 108 tests across eight projects, 11 more for the Lab; the CI badge on the repository; the experiments that found three real bugs.

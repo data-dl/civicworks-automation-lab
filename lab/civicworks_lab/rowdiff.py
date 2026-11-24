@@ -133,7 +133,11 @@ def changes(before: dict, after: dict) -> list[dict]:
         b = before.get(source, {"cols": a["cols"], "rows": {}})
         added = [k for k in a["rows"] if k not in b["rows"]]
         removed = [k for k in b["rows"] if k not in a["rows"]]
-        changed = []
+        changed = _pair(b["rows"], a["rows"], removed, added)    # a file with no unique key: edits look like
+        paired = {c["_old"] for c in changed} | {c["_new"] for c in changed}   # a removal plus an addition
+        added, removed = [k for k in added if k not in paired], [k for k in removed if k not in paired]
+        for c in changed:
+            del c["_old"], c["_new"]
         for k, row in a["rows"].items():
             old = b["rows"].get(k)
             if old is not None and old != row:
@@ -154,6 +158,27 @@ def changes(before: dict, after: dict) -> list[dict]:
     # changed rows first: they are the interesting ones; then added, then removed
     result.sort(key=lambda c: (-c["n_changed"], c["new_source"], -c["n_added"]))
     return result
+
+
+def _pair(old_rows: dict, new_rows: dict, removed: list, added: list) -> list[dict]:
+    """Treat a removed row and an added row that differ in only a few cells as one changed row."""
+    if not removed or not added or len(removed) * len(added) > 40000:
+        return []
+    out, used = [], set()
+    for ok in removed:
+        old = old_rows[ok]
+        best = None
+        for nk in added:
+            new = new_rows[nk]
+            if nk in used or len(new) != len(old):
+                continue
+            cells = [i for i in range(len(new)) if new[i] != old[i]]
+            if cells and len(cells) <= max(1, len(new) // 3) and (best is None or len(cells) < len(best[1])):
+                best = (nk, cells)
+        if best:
+            used.add(best[0])
+            out.append({"row": new_rows[best[0]], "before": old, "cells": best[1], "_old": ok, "_new": best[0]})
+    return out
 
 
 def identifiers(text: str) -> list[str]:

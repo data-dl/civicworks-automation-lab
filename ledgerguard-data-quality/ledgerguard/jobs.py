@@ -28,7 +28,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 
 from .db import connect, migrate
-from .runkit import SYNTHETIC_NOTICE, sha256_file, utc_now, write_json
+from .runkit import SYNTHETIC_NOTICE, replace, sha256_file, utc_now, write_json
 from .sources import EXPORT_COLUMNS, CsvAdapter, DeskAppExport, SqliteAdapter
 
 JOBS = {
@@ -221,13 +221,19 @@ def _publish(ws: Workspace, con: sqlite3.Connection, day: DayResult) -> None:
         if target.exists():
             shutil.rmtree(target)
         target.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(ws.current, target)
+        replace(ws.current, target)
         for name, digest in (previous or {}).get("files", {}).items():
+            # Paths relative to the workspace: the index stays valid if the workspace is moved or restored
+            # elsewhere, and it never records the folder names of the machine it ran on.
             con.execute("INSERT INTO archive_item (run_id, file_name, sha256, archive_path, restore_path) "
-                        "VALUES (?, ?, ?, ?, ?)", (day.run_id, name, digest, str(target / name),
-                                                   str(ws.current / name)))
+                        "VALUES (?, ?, ?, ?, ?)", (day.run_id, name, digest, _rel(ws, target / name),
+                                                   _rel(ws, ws.current / name)))
         day.archived = target.name
-    os.replace(stage, ws.current)
+    replace(stage, ws.current)
+
+
+def _rel(ws: Workspace, path: Path) -> str:
+    return path.resolve().relative_to(ws.root.resolve()).as_posix()
 
 
 def restore(ws: Workspace, run_id: str) -> tuple[bool, str]:
@@ -247,8 +253,8 @@ def restore(ws: Workspace, run_id: str) -> tuple[bool, str]:
     displaced = ws.archive / f"{current}-replaced-by-restore"
     if displaced.exists():
         shutil.rmtree(displaced)
-    os.replace(ws.current, displaced)
-    os.replace(stage, ws.current)
+    replace(ws.current, displaced)
+    replace(stage, ws.current)
     return True, f"current is {run_id} again (all {len(manifest['files'])} files re-hashed); " \
                  f"the set it replaced is kept in archive/{displaced.name}"
 

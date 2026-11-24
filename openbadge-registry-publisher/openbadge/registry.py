@@ -39,9 +39,12 @@ def schema() -> dict:
 
 
 def build_payload(con: sqlite3.Connection, release_id: str, as_of: date) -> dict:
+    # LEFT JOINs on purpose: an inner join would silently drop a badge whose type or learner is unknown, and a
+    # record that vanishes can never be flagged. Keeping it lets validate() block the release and name it.
     rows = con.execute(
-        "SELECT b.badge_id, l.alias, b.badge_type, t.label, b.issue_date, b.expiry_date "
-        "FROM badge b JOIN learner l ON l.learner_id = b.learner_id JOIN badge_type t ON t.code = b.badge_type "
+        "SELECT b.badge_id, COALESCE(l.alias, ''), b.badge_type, COALESCE(t.label, ''), b.issue_date, b.expiry_date "
+        "FROM badge b LEFT JOIN learner l ON l.learner_id = b.learner_id "
+        "LEFT JOIN badge_type t ON t.code = b.badge_type "
         "WHERE b.status = 'approved' ORDER BY b.badge_id, b.row_id").fetchall()
     badges = [{"badge_id": r[0], "learner_alias": r[1], "badge_type": r[2], "label": r[3], "issued": r[4],
                "expires": r[5]} for r in rows]
@@ -84,6 +87,9 @@ def validate(payload: dict, known_types: set[str], previous: dict | None = None,
             findings.append(Finding("valid_dates", "blocking", f"{badge['badge_id']}: expires before it was issued"))
         elif issued > as_of:
             findings.append(Finding("valid_dates", "blocking", f"{badge['badge_id']}: issued after the release date"))
+        if not badge["learner_alias"]:
+            findings.append(Finding("known_learner", "blocking",
+                                    f"{badge['badge_id']}: learner is not in the registry"))
         if badge["badge_type"] not in known_types:
             findings.append(Finding("controlled_vocabulary", "blocking",
                                     f"{badge['badge_id']}: unknown badge type {badge['badge_type']}"))

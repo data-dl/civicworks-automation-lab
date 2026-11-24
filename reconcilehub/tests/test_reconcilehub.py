@@ -37,6 +37,22 @@ def actions(r, kind):
     return [a for a in r.actions if a["action"] == kind]
 
 
+def test_a_name_that_drifted_under_the_same_id_is_reported_not_acted_on(ws):
+    # Found by the Lab's "mistype a name" experiment: the drift used to pass without a word.
+    path = ws.inputs / C / "current_roster.csv"
+    rows = list(csv.DictReader(path.open(encoding="utf-8")))
+    target = rows[1]
+    old_name, target["display_name"] = target["display_name"], target["display_name"] + "x"
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    r = reconcile(ws, C)
+    pid = norm_id(target["member_id"])
+    assert any(pid in n and old_name in n for n in r.notes), r.notes
+    assert not [a for a in r.actions if a["member_id"] == pid], "a spelling difference never changes access"
+
+
 @pytest.mark.parametrize("raw, expected", [(" fc-17 ", "FC-00017"), ("FC00031", "FC-00031"),
                                            ("FC-00931", "FC-00931"), ("", None), ("XX-1", None)])
 def test_ids_normalise_and_bad_ones_are_rejected(raw, expected):

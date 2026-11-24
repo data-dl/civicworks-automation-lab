@@ -69,6 +69,8 @@ function home() {
   </section>
   <div class="start">
     <a href="#/p/atlas/run"><b>Start here: a guided run of Atlas</b><span>The flagship: data checked, frozen, printed into 12 PDFs, verified, published.</span></a>
+    <a href="#/p/masterrecord/try"><b>Break the data on purpose</b><span>One click runs a normal run and a changed one side by side and shows only what differs.</span></a>
+    <a href="#/p/regional/data"><b>Ask the data a question</b><span>A SQL console on each pipeline's database, with questions that teach joins, CTEs and window functions.</span></a>
     <a href="#/ideas"><b>The nine big ideas</b><span>Understand these and you understand all eight pipelines.</span></a>
     <a href="#/interview"><b>Interview prep</b><span>A 30-second pitch, a 2-minute walkthrough, real stories, honest answers.</span></a>
     <a href="#/cards"><b>Flashcards</b><span>Every interview question, simple answer first, technical second.</span></a>
@@ -84,13 +86,13 @@ function home() {
 
 function pipeline(key, tab) {
   const p = C.pipelines.find(x => x.key === key); if (!p) return home();
-  const tabs = [["overview", "Overview"], ["run", "Guided run"], ["why", "Why built this way"], ["wrong", "What goes wrong"],
-                ["questions", "Questions"], ["try", "Try it yourself"], ["video", "Video"]];
+  const tabs = [["overview", "Overview"], ["run", "Guided run"], ["try", "Experiments"], ["data", "Query the data"],
+                ["why", "Why built this way"], ["wrong", "What goes wrong"], ["questions", "Questions"], ["video", "Video"]];
   app.innerHTML = `
     <section class="hero"><div class="eyebrow">Pipeline ${p.order} of 8</div><h1>${esc(p.title)}</h1><p class="lede">${esc(p.tagline)}</p></section>
     <nav class="tabs">${tabs.map(([k, l]) => `<a href="#/p/${key}/${k}" class="${k === tab ? "on" : ""}">${l}</a>`).join("")}</nav>
     <div id="tab"></div>`;
-  ({ overview, run: guided, why, wrong, questions, try: tryit, video })[tab](p, $("#tab"));
+  ({ overview, run: guided, why, wrong, questions, try: tryit, data: dataTab, video })[tab](p, $("#tab"));
 }
 
 function overview(p, el) {
@@ -130,11 +132,139 @@ function qa(q) {
 }
 function questions(p, el) { el.className = "section"; el.innerHTML = p.questions.map(qa).join("") }
 
+// --- shared table helpers --------------------------------------------------------------------------------
+const srcLabel = s => { const [f, t] = s.split("::"); return t ? `<code>${esc(t)}</code> <span class="note">table in ${esc(f)}</span>`
+  : s.includes(" > ") ? `<code>${esc(s.split(" > ")[1])}</code> <span class="note">sheet in ${esc(s.split(" > ")[0])}</span>` : `<code>${esc(s)}</code>`; };
+function gridHtml(cols, rows, max = 12) {   // rows: [{row, cls, cells:{i: html}}]
+  const n = Math.min(max, Math.max(cols.length, ...rows.map(r => r.row.length)));
+  return `<div class="rowgrid"><table><tr>${Array.from({ length: n }, (_, i) => `<th>${esc(cols[i] ?? "")}</th>`).join("")}</tr>
+    ${rows.map(r => `<tr class="${r.cls || ""}">${Array.from({ length: n }, (_, i) => r.cells && i in r.cells ? `<td class="hit">${r.cells[i]}</td>`
+      : `<td>${esc(r.row[i] ?? "")}</td>`).join("")}</tr>`).join("")}</table></div>`;
+}
+function changedRowsHtml(list) {
+  return list.slice(0, 6).map(r => `<h4>${srcLabel(r.source)}</h4>${gridHtml(r.cols, [
+    ...r.changed.map(c => ({ row: c.row, cells: Object.fromEntries(c.cells.map(i => [i, `<s>${esc(c.before[i] ?? "")}</s> ${esc(c.row[i] ?? "")}`])) })),
+    ...r.added.map(row => ({ row, cls: "addrow" })), ...r.removed.map(row => ({ row, cls: "delrow" }))])}`).join("");
+}
+function diffHtml(lines) {
+  if (!lines.length) return `<p class="note">The output was identical to the normal run.</p>`;
+  return `<div class="terminal diff">${lines.map(l => `<div class="${l.kind === "heading" ? "h" : l.kind === "added" ? "plus" : "minus"}">${
+    l.kind === "added" ? "+ " : l.kind === "removed" ? "- " : ""}${esc(l.text)}</div>`).join("")}</div>`;
+}
+const waitRun = async (id, onTick) => {
+  for (;;) { const s = await api(`/api/state?run=${id}&since=0`); if (onTick) onTick(s); if (s.status === "done") return s; await new Promise(r => setTimeout(r, 600)) }
+};
+
+// --- experiments: change the real data, run the real pipeline, see only what changed ----------------------
 function tryit(p, el) {
   el.className = "section";
-  el.innerHTML = `<p class="lede">Small experiments. Run the guided run first so the workspace exists, then open a terminal in
-    <code>${esc(p.dir)}</code> and try these. Predict the result before you press Enter.</p>` +
-    p.try.map(t => `<div class="card"><h3>${esc(t.title)}</h3><p>${terms(t.how)}</p><p class="note"><b>Expect:</b> ${terms(t.expect)}</p></div>`).join("");
+  const X = C.experiments[p.key] || { experiments: [] };
+  el.innerHTML = `<p class="lede">Change one thing in the real input data, then let the real pipeline run on. The Lab runs a normal run beside
+    it and shows you <b>only the lines of output your change made different</b>. Predict first - that is where the learning happens.</p>
+    ${X.note ? `<div class="card"><p>${terms(X.note)}</p></div>` : ""}
+    ${X.experiments.map((x, i) => `<div class="card exp" id="x${i}"><span class="eyebrow">Experiment ${i + 1}</span><h3>${esc(x.title)}</h3>
+      <p>${terms(x.plain)}</p>
+      <details class="note"><summary>The exact change</summary><ul>${x.edits.map(e => `<li><code>${esc(e.sql || JSON.stringify(e))}</code></li>`).join("")}</ul></details>
+      <div class="predict"><b>Predict first</b><p>${terms(x.predict)}</p></div>
+      <div class="actions"><button data-x="${i}">Run the normal run and this experiment</button><span class="note" id="xs${i}"></span></div>
+      <div id="xr${i}"></div></div>`).join("")}
+    <h2>Your own experiment</h2>
+    <div class="two"><div class="card"><span class="eyebrow">Change any input</span><p>Start the <a href="#/p/${p.key}/run">guided run</a>. After scene 1,
+      press <b>Change the data</b>: edit any cell of an input file, or run SQL against the run's database, then run the next scene and see what the pipeline does with it.</p></div>
+      <div class="card"><span class="eyebrow">Ask the data a question</span><p>The <a href="#/p/${p.key}/data">Query the data</a> tab has a SQL console on this
+      pipeline's database, with example questions that teach joins, window functions and more.</p></div></div>
+    <details class="card"><summary><b>From a terminal</b> (the commands behind the buttons)</summary>
+      ${p.try.map(t => `<h4>${esc(t.title)}</h4><p>${terms(t.how)}</p><p class="note"><b>Expect:</b> ${terms(t.expect)}</p>`).join("")}</details>`;
+  el.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => {
+    const i = +b.dataset.x, x = X.experiments[i], out = $(`#xr${i}`), st = $(`#xs${i}`);
+    b.disabled = true; out.innerHTML = ""; st.textContent = "starting both runs...";
+    const ids = await api("/api/experiment", { key: p.key, id: x.id });
+    if (ids.error) { st.textContent = ids.error; b.disabled = false; return }
+    let a = 0, e = 0;
+    const [, run] = await Promise.all([
+      waitRun(ids.normal, s => { a = s.next; st.textContent = `normal run: ${a} lines · experiment: ${e} lines` }),
+      waitRun(ids.experiment, s => { e = s.next; st.textContent = `normal run: ${a} lines · experiment: ${e} lines` })]);
+    const cmp = await api(`/api/compare?a=${ids.normal}&b=${ids.experiment}`);
+    const ap = run.applied || {};
+    st.textContent = "both runs finished";
+    out.innerHTML = `
+      ${ap.error ? `<div class="answer refused"><b>The change was refused before the pipeline saw it:</b> <code>${esc(ap.error)}</code>
+        <p class="note">Nothing was written, so the run continued exactly as normal.</p></div>`
+        : `<span class="eyebrow">1. Your change, in the data</span>${changedRowsHtml(ap.rows || [])}`}
+      <span class="eyebrow">2. What the pipeline did differently</span>
+      <p class="note">Lines starting with <b>+</b> appear only in your experiment; <b>-</b> only in the normal run. Scene headings show where.</p>
+      ${diffHtml(cmp.lines || [])}
+      <div class="answer"><b>What to notice:</b> ${terms(x.look_for)}</div>
+      <div class="actions"><button class="ghost small" data-files="${esc(ids.experiment)}">Open the experiment's files</button></div>`;
+    out.querySelector("[data-files]").onclick = () => allFiles(ids.experiment);
+    b.disabled = false; b.textContent = "Run it again";
+  });
+}
+
+// --- the SQL console on a run's database ------------------------------------------------------------------
+async function sqlConsole(el, p, runId) {
+  const Q = (C.experiments.queries || {})[p.key] || { db: "", list: [] };
+  const { dbs = [] } = await api(`/api/dbs?run=${runId}`);
+  const pick = dbs.find(d => d.split("/").pop() === Q.db) || dbs[0];
+  el.innerHTML = `<div class="sql">
+    <div class="actions"><label class="note">Database <select id="sqldb">${dbs.map(d => `<option ${d === pick ? "selected" : ""}>${esc(d)}</option>`).join("")}</select></label>
+      <button class="ghost small" id="schema">See its tables</button></div>
+    <div class="chips">${Q.list.map((q, i) => `<button class="chip qbtn" data-q="${i}" title="${esc(q.teaches)}">${esc(q.title)}</button>`).join("")}</div>
+    <p class="note" id="teach">Pick a question above, or write your own. This is a sandbox copy - changes stay in this run.</p>
+    <textarea id="sqltext" spellcheck="false" rows="8">${esc(Q.list[0]?.sql || "SELECT name FROM sqlite_master WHERE type = 'table';")}</textarea>
+    <div class="actions"><button id="runsql">Run (Ctrl+Enter)</button><span class="note" id="sqlinfo"></span></div><div id="sqlout"></div></div>`;
+  const run = async () => {
+    const r = await api("/api/sql", { run: runId, db: $("#sqldb", el).value, sql: $("#sqltext", el).value });
+    $("#sqlinfo", el).textContent = r.error ? "" : r.cols.length ? `${r.rows.length}${r.more ? "+" : ""} row(s)` : `${r.changed} row(s) changed`;
+    $("#sqlout", el).innerHTML = r.error ? `<div class="answer refused"><b>The database said no:</b> <code>${esc(r.error)}</code></div>`
+      : r.cols.length ? gridHtml(r.cols, r.rows.map(row => ({ row })), 20) : `<p class="note">Done. Re-run a SELECT to see the effect.</p>`;
+  };
+  el.querySelectorAll("[data-q]").forEach(b => b.onclick = () => { const q = Q.list[+b.dataset.q];
+    $("#sqltext", el).value = q.sql; $("#teach", el).innerHTML = `<b>Teaches:</b> ${esc(q.teaches)}`; run() });
+  $("#runsql", el).onclick = run;
+  $("#sqltext", el).onkeydown = e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run() } };
+  $("#schema", el).onclick = () => openFile(runId, $("#sqldb", el).value);
+  if (Q.list.length) run();
+}
+
+async function dataTab(p, el) {
+  el.className = "section";
+  el.innerHTML = `<p class="lede">Every pipeline keeps its state in a SQLite database with keys, constraints and an audit trail. Ask it questions in SQL -
+    the same skill an analytics engineer uses every day. The examples teach one idea each; hover a question to see which.</p><div id="sqlhost"></div>`;
+  const host = $("#sqlhost");
+  const latest = await api(`/api/latest?key=${p.key}`);
+  if (latest.run && latest.status === "done") return sqlConsole(host, p, latest.run);
+  host.innerHTML = `<div class="card"><p>${latest.run ? "Your guided run is still in progress; finish it, or make a complete set of data now."
+    : "There is no data yet."} Making it runs the real ${esc(p.title)} demo start to finish on invented data (a few seconds to half a minute).</p>
+    <div class="actions"><button id="make">Make the data</button><span class="note" id="mk"></span></div></div>`;
+  $("#make").onclick = async () => {
+    $("#make").disabled = true; const r = await api("/api/run-through", { key: p.key });
+    await waitRun(r.run, s => { $("#mk").textContent = `running... ${s.next} lines` });
+    sqlConsole(host, p, r.run);
+  };
+}
+
+// --- change the data mid-run: edit an input CSV or run SQL ------------------------------------------------
+async function changeData(runId, p) {
+  const { files = [] } = await api(`/api/files?run=${runId}`);
+  const csvs = files.filter(f => f.endsWith(".csv"));
+  drawer("Change the data", `<p class="lede">Edit an input, save, then press <b>Run scene</b> to see how the pipeline reacts. Only this run's copy changes.</p>
+    <div class="two"><div><span class="eyebrow">Edit a file</span><ul>${csvs.map(f => `<li><button class="filebtn" data-edit="${esc(f)}">${esc(f)}</button></li>`).join("")
+    || "<li class='note'>No CSV files yet.</li>"}</ul></div><div><span class="eyebrow">Or change a database with SQL</span><div id="drawersql"></div></div></div><div id="editor"></div>`);
+  sqlConsole($("#drawersql"), p, runId);
+  $("#drawer-body").querySelectorAll("[data-edit]").forEach(b => b.onclick = async () => {
+    const r = await api(`/api/csv?run=${runId}&path=${encodeURIComponent(b.dataset.edit)}`);
+    if (r.error) { $("#editor").innerHTML = `<p>${esc(r.error)}</p>`; return }
+    $("#editor").innerHTML = `<h3>${esc(b.dataset.edit)}</h3><p class="note">Click a cell and type. Changed cells are highlighted.</p>
+      <div class="rowgrid edit"><table>${r.rows.map((row, i) => `<tr>${row.map(c => i ? `<td contenteditable="true">${esc(c)}</td>` : `<th>${esc(c)}</th>`).join("")}</tr>`).join("")}</table></div>
+      <div class="actions"><button id="savecsv">Save this file</button><span class="note" id="saved"></span></div>`;
+    $("#editor").querySelectorAll("td").forEach(td => { const v = td.textContent; td.oninput = () => td.classList.toggle("hit", td.textContent !== v) });
+    $("#savecsv").onclick = async () => {
+      const rows = [...$("#editor").querySelectorAll("tr")].map(tr => [...tr.children].map(c => c.textContent));
+      const s = await api("/api/save-csv", { run: runId, path: b.dataset.edit, rows });
+      $("#saved").textContent = s.error ? s.error : `saved ${s.rows} rows - now run the next scene`;
+    };
+  });
 }
 
 function video(p, el) {
@@ -185,6 +315,7 @@ function guided(p, el) {
           ${run && ran && !last ? `<button id="nextscene">Next scene</button><span class="note">Read what changed below first.</span>` : ""}
           ${run && ran && last ? `<button id="again" class="ghost">Run it again from the start</button><span class="note">Guided run complete.</span>` : ""}
           ${run ? `<button class="ghost small" id="files">All files in this run</button><button class="ghost small" id="folder">Open the folder</button>` : ""}
+          ${run && run.status === "paused" ? `<button class="ghost small" id="change">Change the data</button>` : ""}
         </div>
       </div>
       ${mine.length ? `<div class="terminal">${mine.map(l => `<div class="${lineClass(l.text)}">${esc(l.text)}</div>`).join("")}</div>` : ""}
@@ -195,6 +326,7 @@ function guided(p, el) {
     const again = $("#again"); if (again) again.onclick = () => { run = null; current = 1; lines = []; titles = {}; changes = {}; list(); stage() };
     const files = $("#files"); if (files) files.onclick = () => allFiles(run.id);
     const folder = $("#folder"); if (folder) folder.onclick = () => api("/api/open-folder", { run: run.id });
+    const change = $("#change"); if (change) change.onclick = () => changeData(run.id, p);
     el.querySelectorAll("[data-file]").forEach(b => b.onclick = () => openFile(run.id, b.dataset.file));
     list();
   }

@@ -88,7 +88,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .scene-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 12px }
 .predict { background: var(--warn-soft); border-radius: 8px; padding: 12px 14px; display: grid; gap: 8px }
 .predict b { color: var(--warn); font-size: 13px; letter-spacing: .04em; text-transform: uppercase }
-.answer { background: var(--ok-soft); border-radius: 8px; padding: 12px 14px }
+.answer { background: var(--accent-soft); border-radius: 8px; padding: 12px 14px }
 .answer b { color: var(--ok) }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center }
 .terminal { background: #fbfcfe; border: 1px solid var(--line); border-radius: 8px; font: 12.8px/1.55 var(--mono);
@@ -101,7 +101,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .changes ul { margin: 0; padding-left: 1.1em; display: grid; gap: 3px; font-size: 14px }
 .filebtn { background: none; border: none; color: var(--accent); padding: 0; font: 13.5px var(--mono); text-decoration: underline; cursor: pointer }
 .badge { font: 600 11px var(--mono); padding: 2px 6px; border-radius: 4px; background: var(--soft); color: var(--muted) }
-.badge.add { background: var(--ok-soft); color: var(--ok) }
+.badge.add { background: var(--accent-soft); color: var(--accent) }
 .badge.chg { background: var(--warn-soft); color: var(--warn) }
 .status { font: 600 12.5px var(--mono); padding: 3px 8px; border-radius: 6px; background: var(--soft) }
 .drawer { position: fixed; inset: 0; background: rgba(20, 30, 45, .35); z-index: 20; display: flex; justify-content: flex-end }
@@ -141,6 +141,20 @@ video { width: 100%; border-radius: 8px; background: #111; aspect-ratio: 16 / 9 
 .rowgrid td.hit { background: var(--warn-soft); font-weight: 600 }
 .rowgrid td.hit s { color: var(--bad); font-weight: 400 }
 .rowgrid mark { background: none; color: var(--warn); font-weight: 700 }
-.rowgrid tr.addrow td { background: var(--ok-soft) }
+.rowgrid tr.addrow td { background: var(--accent-soft) }
 .rowgrid tr.delrow td { color: var(--muted); text-decoration: line-through }
 .rows details summary { cursor: pointer; padding: 4px 0 }
+
+/* experiments, SQL console, data editor */
+.exp h3 { margin: 4px 0 }
+.terminal.diff .plus { color: var(--ink); background: var(--accent-soft) }
+.terminal.diff .minus { color: var(--muted); background: var(--bad-soft); text-decoration: line-through }
+.answer.refused { background: var(--bad-soft) }
+.sql textarea { width: 100%; box-sizing: border-box; font: 13px/1.5 var(--mono); padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); color: var(--ink); resize: vertical }
+.sql select { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink) }
+.chip.qbtn { cursor: pointer; border: 1px solid var(--line); background: var(--panel); font: inherit; font-size: 13px }
+.chip.qbtn:hover { border-color: var(--accent); color: var(--accent) }
+.rowgrid.edit { max-height: 50vh; overflow: auto }
+.rowgrid.edit td[contenteditable]:focus { outline: 2px solid var(--accent); background: var(--accent-soft) }
+details summary { cursor: pointer }

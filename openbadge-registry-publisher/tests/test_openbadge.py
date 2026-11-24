@@ -72,6 +72,20 @@ def test_bad_data_blocks_and_nothing_is_published(ws):
     assert not (ws.site / "releases" / "registry-R0002.json").exists()
 
 
+def test_a_badge_with_an_unknown_type_blocks_instead_of_vanishing(ws):
+    # Found by the Lab's "unknown badge type" experiment: an inner join used to drop such a badge silently,
+    # so the release went out one badge short with no finding. Written outside the app's connection, as a
+    # bulk load or a hand edit would, where foreign keys are not switched on.
+    raw = sqlite3.connect(ws.db)
+    raw.execute("UPDATE badge SET badge_type = 'GLASS-WIZARD' WHERE row_id = 1")
+    raw.commit()
+    raw.close()
+    r = release(ws, AS_OF)
+    assert r.verdict == "BLOCKED"
+    assert any(f.rule == "controlled_vocabulary" and "GLASS-WIZARD" in f.detail for f in r.findings)
+    assert read_pointer(ws.site) is None, "nothing went live"
+
+
 @pytest.mark.parametrize("fault", ["corrupt-after-write", "missing-file"])
 def test_a_broken_upload_never_becomes_latest(ws, fault):
     release(ws, AS_OF)

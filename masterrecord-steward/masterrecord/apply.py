@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import csv
 import hashlib
-import os
 import shutil
 from dataclasses import dataclass, field
 from datetime import date
@@ -24,7 +23,7 @@ import yaml
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 
-from .runkit import sha256_file, utc_now
+from .runkit import replace, sha256_file, utc_now
 from .steward import PRECEDENCE, Workspace
 from .synth import MASTER_COLUMNS
 
@@ -157,7 +156,7 @@ def apply_decisions(ws: Workspace, decisions_file: Path, *, apply: bool = False,
         raise RuntimeError(f"write-back would disturb {problems[:5]}; master left as it was")
 
     # 7. swap in and record
-    os.replace(temp, ws.master)
+    replace(temp, ws.master)
     result.master_sha256 = sha256_file(ws.master)
     for proposal, resolution, value, line, digest in accepted:
         cur = con.execute("INSERT INTO stewardship_decision (proposal_id, resolution, value, approver_role, rationale, "

@@ -53,7 +53,7 @@ flowchart LR
 python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"     # Mac/Linux: .venv/bin/python
 python -m openbadge demo --out build/demo          # the whole story, including the failures
-python -m pytest                                   # 13 tests
+python -m pytest                                   # 14 tests
 ```
 
 Or step by step on a workspace:
@@ -81,7 +81,8 @@ python -m openbadge status --workspace build/ws
 
 ## Tests
 
-13 tests: same seed gives the same bytes; migrations apply once and foreign keys hold; a release is
+14 tests: same seed gives the same bytes; migrations apply once and foreign keys hold; a badge with an
+unknown type blocks the release instead of vanishing from it (found by a Lab experiment); a release is
 verified before the pointer moves; duplicates and impossible dates block with nothing published; a
 cut-off or missing upload never becomes latest; a large drop needs explicit acceptance; a dry run
 publishes nothing; delayed consumer import keeps technical and business status apart; a stale pointer

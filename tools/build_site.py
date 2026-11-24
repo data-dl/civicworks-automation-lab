@@ -13,12 +13,14 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from site_extras import EXTRA_CSS, count_tests, experiments_section, roles_page_body, sql_section  # noqa: E402
 from video_scripts import SCRIPTS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 REPO = "https://github.com/data-dl/civicworks-automation-lab"
 LEARN = ROOT / "learn"
+QUERIES: dict = {}
 
 
 def esc(s) -> str:
@@ -32,7 +34,7 @@ def load() -> dict:
         if (DOCS / "videos" / "videos.json").exists() else {}
     for p in pipelines:
         p["stats"] = stats.get(p["key"], {})
-        p["tests"] = int(p["stats"].get("tests", "0").split()[0]) if p["stats"].get("tests", "0")[0].isdigit() else 0
+        p["tests"] = count_tests(p["dir"])
         p["images"] = sorted((DOCS / "img").glob(f"{p['key']}-*.png"))
         rules = ROOT / p["dir"] / p["key"] / "rules.yaml"
         p["rules"] = yaml.safe_load(rules.read_text(encoding="utf-8"))["rules"] if rules.exists() else []
@@ -40,7 +42,15 @@ def load() -> dict:
     return {"pipelines": pipelines, "stats": stats,
             "glossary": yaml.safe_load((LEARN / "glossary.yaml").read_text(encoding="utf-8"))["terms"],
             "ideas": yaml.safe_load((LEARN / "big_ideas.yaml").read_text(encoding="utf-8"))["ideas"],
-            "interview": yaml.safe_load((LEARN / "interview.yaml").read_text(encoding="utf-8"))}
+            "interview": yaml.safe_load((LEARN / "interview.yaml").read_text(encoding="utf-8")),
+            "queries": yaml.safe_load((LEARN / "experiments.yaml").read_text(encoding="utf-8"))["queries"],
+            "lab_tests": count_tests("lab"), **counts()}
+
+
+def counts() -> dict:
+    x = yaml.safe_load((LEARN / "experiments.yaml").read_text(encoding="utf-8"))
+    return {"n_exp": sum(len(v.get("experiments", [])) for k, v in x.items() if k != "queries"),
+            "n_sql": sum(len(v["list"]) for v in x["queries"].values())}
 
 
 def schema(folder: Path) -> list[dict]:
@@ -134,7 +144,7 @@ pre{font:13.5px/1.6 var(--mono);background:#f9fbfd;border:1px solid var(--line);
 .gloss span{color:var(--muted);font-size:14.5px}.gloss i{display:block;font-style:normal;color:var(--accent);font-size:13.5px;margin-top:4px}
 .stepnav{display:flex;flex-wrap:wrap;gap:6px}.stepnav button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
 background:var(--panel);color:var(--muted);font:600 13px var(--mono);cursor:pointer}.stepnav button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-.pred{background:#f7eedb;border-radius:8px;padding:10px 14px}.ans{background:#e4f1ec;border-radius:8px;padding:10px 14px}
+.pred{background:#f7eedb;border-radius:8px;padding:10px 14px}.ans{background:#e6eef7;border-radius:8px;padding:10px 14px}
 .term{max-height:380px;white-space:pre-wrap}.term .bad{color:var(--bad)}.term .ok{color:var(--ok)}.term .warn{color:var(--warn)}
 button.btn{border:none;cursor:pointer;font:inherit}button.btn.ghost{border:1px solid var(--line)}button:disabled{opacity:.4;cursor:default}
 .deck{position:fixed;inset:0;background:var(--bg);display:grid;grid-template-rows:1fr auto}.slide{display:none;padding:6vh 8vw;align-content:center;gap:22px}
@@ -153,7 +163,8 @@ footer{border-top:1px solid var(--line);background:var(--panel)}footer .in{max-w
 def page(title: str, body: str, depth: int = 0, nav: str = "") -> str:
     up = "../" * depth
     links = [("index.html", "Overview", "home"), ("index.html#pipelines", "Pipelines", "pipelines"),
-             ("learn.html", "Concepts", "learn"), ("run.html", "Run it", "run"), (REPO, "GitHub", "gh")]
+             ("learn.html", "Concepts", "learn"), ("run.html", "Run it", "run"), ("roles.html", "For hiring teams", "roles"),
+             (REPO, "GitHub", "gh")]
     navs = "".join(f'<a href="{h if h.startswith("http") else up + h}" class="{"on" if k == nav else ""}">{t}</a>'
                    for h, t, k in links)
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -193,7 +204,7 @@ def index(d: dict) -> str:
     ideas = "".join(f'<div class="panel"><span class="eyebrow">{n:02d}</span><h3>{esc(i["title"])}</h3><p class="lede" style="font-size:15.5px">{esc(i["plain"])}</p></div>'
                     for n, i in enumerate(d["ideas"], start=1))
     return page("CivicWorks Automation Lab", f"""
-<section class="hero"><div style="display:grid;gap:18px"><span class="eyebrow">Data engineering portfolio &middot; invented data</span>
+<section class="hero" id="overview"><div style="display:grid;gap:18px"><span class="eyebrow">Data engineering portfolio &middot; invented data</span>
   <h1>Reliable automation, from messy inputs to verified outputs.</h1>
   <p class="lede">Eight data pipelines for invented organisations. Each one takes data with planted problems, catches them,
   stops where a person has to decide, and leaves evidence of everything it did.</p>
@@ -201,8 +212,14 @@ def index(d: dict) -> str:
   <a class="btn ghost" href="{REPO}">Source on GitHub</a></div></div>
   <video controls preload="metadata" poster="videos/overview-poster.jpg" src="videos/overview.mp4"></video></section>
 <section class="stats"><div class="stat"><b>8</b><span>pipelines, each a separate tested package</span></div>
-  <div class="stat"><b>{tests}</b><span>automated tests</span></div><div class="stat"><b>2</b><span>operating systems in CI on every change</span></div>
-  <div class="stat"><b>0</b><span>real people or records</span></div></section>
+  <div class="stat"><b>{tests}</b><span>automated tests (+{d['lab_tests']} for the Lab)</span></div><div class="stat"><b>2</b><span>operating systems in CI on every change</span></div>
+  <div class="stat"><b>{d['n_exp']}</b><span>experiments on the real code</span></div><div class="stat"><b>{d['n_sql']}</b><span>SQL questions, in your browser</span></div></section>
+<section><span class="eyebrow">Start here</span><h2>Four ways in, from two minutes to an afternoon</h2><div class="start">
+  <a href="#overview"><i>2 minutes</i><b>Watch the overview</b><span>Narrated, replayed from real runs.</span></a>
+  <a href="p/masterrecord.html#experiments"><i>5 minutes</i><b>Break the data, see what happens</b><span>Experiments on the real code: change one value, see only what it changed.</span></a>
+  <a href="p/regional.html#query"><i>10 minutes</i><b>Query a pipeline's database</b><span>It opens in your browser. Joins, CTEs, window functions.</span></a>
+  <a href="roles.html"><i>For hiring teams</i><b>What it shows, role by role</b><span>Data engineer, analytics engineer, data analyst - with links to the code.</span></a>
+</div></section>
 <section id="pipelines"><span class="eyebrow">The pipelines</span><h2>Each one shown running, with its real outputs</h2>
   <div class="grid">{cards}</div></section>
 <section><span class="eyebrow">Architecture</span><h2>How it fits together</h2>
@@ -303,7 +320,7 @@ def stepper(p: dict) -> str:
     if not any(d["lines"] for d in data):
         return ""
     payload = json.dumps(data).replace("</", "<\\/")
-    return (f"<section><span class='eyebrow'>Step through it - no install needed</span><h2>Predict, then see what the real run did</h2>"
+    return (f"<section id='step'><span class='eyebrow'>Step through it - no install needed</span><h2>Predict, then see what the real run did</h2>"
             f"<p class='lede'>Every scene of the recorded run. Read what is about to happen, make a prediction, then reveal the actual "
             f"terminal output. To run it yourself one scene at a time, use the <a href='../run.html'>CivicWorks Lab</a>.</p>"
             f"<div class='panel stepper' id='stepper'></div><script type='application/json' id='steps-data'>"
@@ -316,13 +333,17 @@ def pipeline_page(p: dict) -> str:
                       for img, cap in imgs)
     rules = ""
     if p["rules"]:
-        rules = ("<section><span class='eyebrow'>The rulebook</span><h2>Every check, why it exists, how to fix it</h2><div class='scroll'><table>"
+        rules = ("<section id='rules'><span class='eyebrow'>The rulebook</span><h2>Every check, why it exists, how to fix it</h2><div class='scroll'><table>"
                  "<tr><th>rule</th><th>severity</th><th>why</th><th>fix</th></tr>" +
                  "".join(f"<tr><td><code>{esc(r['id'])}</code></td><td>{esc(r['severity'])}</td><td>{esc(r['rationale'])}</td>"
                          f"<td>{esc(r['remediation'])}</td></tr>" for r in p["rules"]) + "</table></div></section>")
     code = f"{REPO}/tree/main/{p['dir']}"
-    return page(p["title"], f"""
-<section class="hero"><div style="display:grid;gap:16px"><span class="eyebrow">Pipeline {p['order']} of 8</span><h1>{esc(p['title'])}</h1>
+    jumps = [("watch", "Watch"), ("step", "Step through"), ("experiments", "Experiments"), ("query", "Query the data"),
+             ("rules", "Rules"), ("model", "Data model"), ("outputs", "Outputs"), ("why", "Why built this way"),
+             ("questions", "Questions"), ("run", "Run it")]
+    subnav = '<nav class="subnav">' + "".join(f'<a href="#{a}">{esc(b)}</a>' for a, b in jumps) + "</nav>"
+    return page(p["title"], f"""{subnav}
+<section class="hero" id="watch"><div style="display:grid;gap:16px"><span class="eyebrow">Pipeline {p['order']} of 8</span><h1>{esc(p['title'])}</h1>
   <p class="lede">{esc(p['tagline'])}</p><div class="chips">{''.join(f'<span class="chip">{esc(s)}</span>' for s in p['skills'])}</div>
   <div class="ctas"><a class="btn" href="{code}">Code and README</a><a class="btn ghost" href="../run.html">Run it</a></div>
   <p class="lede" style="font-size:15px">{p['tests']} automated tests. Video replayed from a real run ({p['stats'].get('real_run', '?')} s).</p></div>
@@ -334,19 +355,21 @@ def pipeline_page(p: dict) -> str:
 <section class="two"><div class="panel"><span class="eyebrow">Inputs</span><table>{''.join(f"<tr><td><code>{esc(i['name'])}</code></td><td>{esc(i['what'])}</td></tr>" for i in p['inputs'])}</table></div>
   <div class="panel"><span class="eyebrow">Outputs</span><table>{''.join(f"<tr><td><code>{esc(o['name'])}</code></td><td>{esc(o['what'])}</td></tr>" for o in p['outputs'])}</table></div></section>
 {stepper(p)}
+{experiments_section(p['key'])}
+{sql_section(p['key'], QUERIES)}
 {rules}
-<section><span class="eyebrow">Data model</span><h2>The database, read from its own migrations</h2>
+<section id="model"><span class="eyebrow">Data model</span><h2>The database, read from its own migrations</h2>
   <p class="lede">Built by applying the project's numbered migration scripts to an empty database. Blue marks a primary key; amber arrows are
   foreign keys - links the database itself enforces.</p>{erd(p['schema'])}</section>
-<section><span class="eyebrow">Real outputs</span><h2>What it produced in the recorded run</h2><div class="gallery">{gallery}</div></section>
-<section><span class="eyebrow">Design decisions</span><h2>Why it is built this way</h2>{''.join(f"<div class='decision'><h3>{esc(x['choice'])}</h3><span class='vs'>instead of: {esc(x['instead_of'])}</span><p>{esc(x['why'])}</p></div>" for x in p['decisions'])}</section>
+<section id="outputs"><span class="eyebrow">Real outputs</span><h2>What it produced in the recorded run</h2><div class="gallery">{gallery}</div></section>
+<section id="why"><span class="eyebrow">Design decisions</span><h2>Why it is built this way</h2>{''.join(f"<div class='decision'><h3>{esc(x['choice'])}</h3><span class='vs'>instead of: {esc(x['instead_of'])}</span><p>{esc(x['why'])}</p></div>" for x in p['decisions'])}</section>
 <section><span class="eyebrow">Failure handling</span><h2>What goes wrong, and what happens</h2><div class="scroll"><table><tr><th>situation</th><th>result</th></tr>
   {''.join(f"<tr><td>{esc(f['what'])}</td><td>{esc(f['result'])}</td></tr>" for f in p['failures'])}</table></div></section>
-<section><span class="eyebrow">Questions</span><h2>Questions it answers</h2>{''.join(f"<div class='qa'><b>{esc(q['q'])}</b><p><small>In short</small>{esc(q['simple'])}</p><p><small>In depth</small>{esc(q['technical'])}</p></div>" for q in p['questions'])}</section>
-<section><span class="eyebrow">Run it</span><pre>cd {esc(p['dir'])}
-pip install -e ".[dev]"
-python -m {esc(p['key'])} demo --out build/demo
-python -m pytest</pre></section>
+<section id="questions"><span class="eyebrow">Questions</span><h2>Questions it answers</h2>{''.join(f"<div class='qa'><b>{esc(q['q'])}</b><p><small>In short</small>{esc(q['simple'])}</p><p><small>In depth</small>{esc(q['technical'])}</p></div>" for q in p['questions'])}</section>
+<section id="run"><span class="eyebrow">Run it</span><pre>python start.py              # one command: sets everything up and opens the Lab
+cd {esc(p['dir'])}
+python -m {esc(p['key'])} demo --out build/demo     # or run just this demo
+python -m pytest                                       # and its tests</pre></section>
 """, depth=1, nav="pipelines")
 
 
@@ -373,7 +396,13 @@ def run_page(d: dict) -> str:
 <section><span class="eyebrow">Try it</span><h1>Run the pipelines yourself</h1>
 <p class="lede">Everything runs locally with Python 3.11 or newer. No accounts, no network, no real data. Each demo generates its own invented
 data from a fixed seed, so you see exactly what the videos show.</p></section>
-<section><h2>Install</h2><pre>git clone {REPO}
+<section class="panel"><h2>One command</h2><p class="lede">With Python 3.11 or newer installed:</p>
+<pre>git clone {REPO}
+cd civicworks-automation-lab
+python start.py</pre><p class="lede">It creates a private environment in <code>.venv</code>, installs the eight pipelines and the Lab, checks
+that every demo runs, and opens the Lab in your browser. Run it again any time - it skips what is already done. On Windows you can also
+double-click <code>Start CivicWorks Lab.cmd</code>.</p></section>
+<section><h2>Or step by step</h2><pre>git clone {REPO}
 cd civicworks-automation-lab
 python -m venv .venv
 .venv/Scripts/activate            # macOS/Linux: source .venv/bin/activate
@@ -381,8 +410,9 @@ pip install {dirs} -e ./lab</pre></section>
 <section><h2>Run any demo</h2><p class="lede">Run each one from its own folder.</p><div class="scroll"><table><tr><th>pipeline</th><th>command</th></tr>{rows}</table></div></section>
 <section><h2>The CivicWorks Lab: run it one scene at a time</h2>
 <p class="lede">The Lab is a small local web app. Pick a pipeline and it runs the real demo one scene at a time: before each scene it explains what
-is about to happen and asks you to predict the result; after it, it shows the output and every file and database table that changed. You can
-open any spreadsheet, Word report, PDF page or database right in the page. It also has the concepts, glossary and question flashcards.</p>
+is about to happen and asks you to predict the result; after it, it shows the output and the exact rows and cells that changed. Between
+scenes you can change the data yourself - edit an input file or run SQL - and watch the pipeline react. Each pipeline also has one-click
+experiments, a SQL console with example questions, and the concepts, glossary and interview flashcards.</p>
 <pre>python -m civicworks_lab          # opens http://127.0.0.1:8870</pre></section>
 <section><h2>Step mode without the Lab</h2><p class="lede">Any demo pauses before each scene if <code>CIVICWORKS_STEP=1</code> is set; press Enter to continue.</p>
 <pre>CIVICWORKS_STEP=1 python -m atlas demo --out build/step</pre></section>
@@ -409,8 +439,9 @@ def deck(d: dict) -> str:
          "<p class='lede'>GitHub Actions installs all eight projects on fresh Ubuntu and Windows machines and runs every test and every "
          "demo after each push. Each run writes a manifest of input and output fingerprints. Every video is replayed from a real run.</p>"),
         ("See it", "Watch, step through, run it.",
-         f"<p class='lede'>Overview video and per-pipeline walkthroughs: <a href='index.html'>the site</a>. Step-by-step replays on each "
-         f"pipeline page. Source: <a href='{REPO}'>{REPO.replace('https://', '')}</a>.</p>"),
+         f"<p class='lede'>Overview video and per-pipeline walkthroughs: <a href='index.html'>the site</a>. On each pipeline page: a "
+         f"step-by-step replay, experiments that break the data on purpose, and a SQL console on its real database. "
+         f"Source: <a href='{REPO}'>{REPO.replace('https://', '')}</a>.</p>"),
     ]
     body = "".join(f"<section class='slide{' on' if n == 0 else ''}'><span class='eyebrow'>{n + 1} / {len(slides)} &middot; "
                    f"{esc(t)}</span><h1>{esc(h)}</h1>{b}</section>" for n, (t, h, b) in enumerate(slides))
@@ -430,7 +461,12 @@ def main() -> None:
     d = load()
     (DOCS / "assets").mkdir(parents=True, exist_ok=True)
     (DOCS / "p").mkdir(exist_ok=True)
-    (DOCS / "assets" / "site.css").write_text(CSS.strip() + "\n", encoding="utf-8")
+    global QUERIES
+    QUERIES = d["queries"]
+    (DOCS / "assets" / "site.css").write_text(CSS.strip() + "\n" + EXTRA_CSS.strip() + "\n", encoding="utf-8")
+    tests = sum(p["tests"] for p in d["pipelines"])
+    (DOCS / "roles.html").write_text(page("For hiring teams - CivicWorks", roles_page_body(d, tests), nav="roles"),
+                                     encoding="utf-8")
     (DOCS / "index.html").write_text(index(d), encoding="utf-8")
     (DOCS / "learn.html").write_text(learn_page(d), encoding="utf-8")
     (DOCS / "run.html").write_text(run_page(d), encoding="utf-8")

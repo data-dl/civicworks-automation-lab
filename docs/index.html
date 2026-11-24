@@ -3,9 +3,9 @@
 <meta name="description" content="Eight tested data pipelines on invented data: validation, approvals, rollback, orchestration.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="assets/site.css"></head><body>
-<header class="top"><div class="in"><a class="brand" href="index.html"><i>CW</i>CivicWorks Automation Lab</a><nav><a href="index.html" class="on">Overview</a><a href="index.html#pipelines" class="">Pipelines</a><a href="learn.html" class="">Concepts</a><a href="run.html" class="">Run it</a><a href="https://github.com/data-dl/civicworks-automation-lab" class="">GitHub</a></nav></div></header>
+<header class="top"><div class="in"><a class="brand" href="index.html"><i>CW</i>CivicWorks Automation Lab</a><nav><a href="index.html" class="on">Overview</a><a href="index.html#pipelines" class="">Pipelines</a><a href="learn.html" class="">Concepts</a><a href="run.html" class="">Run it</a><a href="roles.html" class="">For hiring teams</a><a href="https://github.com/data-dl/civicworks-automation-lab" class="">GitHub</a></nav></div></header>
 <main>
-<section class="hero"><div style="display:grid;gap:18px"><span class="eyebrow">Data engineering portfolio &middot; invented data</span>
+<section class="hero" id="overview"><div style="display:grid;gap:18px"><span class="eyebrow">Data engineering portfolio &middot; invented data</span>
   <h1>Reliable automation, from messy inputs to verified outputs.</h1>
   <p class="lede">Eight data pipelines for invented organisations. Each one takes data with planted problems, catches them,
   stops where a person has to decide, and leaves evidence of everything it did.</p>
@@ -13,8 +13,14 @@
   <a class="btn ghost" href="https://github.com/data-dl/civicworks-automation-lab">Source on GitHub</a></div></div>
   <video controls preload="metadata" poster="videos/overview-poster.jpg" src="videos/overview.mp4"></video></section>
 <section class="stats"><div class="stat"><b>8</b><span>pipelines, each a separate tested package</span></div>
-  <div class="stat"><b>106</b><span>automated tests</span></div><div class="stat"><b>2</b><span>operating systems in CI on every change</span></div>
-  <div class="stat"><b>0</b><span>real people or records</span></div></section>
+  <div class="stat"><b>108</b><span>automated tests (+11 for the Lab)</span></div><div class="stat"><b>2</b><span>operating systems in CI on every change</span></div>
+  <div class="stat"><b>14</b><span>experiments on the real code</span></div><div class="stat"><b>24</b><span>SQL questions, in your browser</span></div></section>
+<section><span class="eyebrow">Start here</span><h2>Four ways in, from two minutes to an afternoon</h2><div class="start">
+  <a href="#overview"><i>2 minutes</i><b>Watch the overview</b><span>Narrated, replayed from real runs.</span></a>
+  <a href="p/masterrecord.html#experiments"><i>5 minutes</i><b>Break the data, see what happens</b><span>Experiments on the real code: change one value, see only what it changed.</span></a>
+  <a href="p/regional.html#query"><i>10 minutes</i><b>Query a pipeline's database</b><span>It opens in your browser. Joins, CTEs, window functions.</span></a>
+  <a href="roles.html"><i>For hiring teams</i><b>What it shows, role by role</b><span>Data engineer, analytics engineer, data analyst - with links to the code.</span></a>
+</div></section>
 <section id="pipelines"><span class="eyebrow">The pipelines</span><h2>Each one shown running, with its real outputs</h2>
   <div class="grid"><a class="card" href="p/atlas.html"><img src="videos/atlas-poster.jpg" alt="" loading="lazy">
       <div class="b"><span class="n">01</span><h3>Atlas License Directory</h3><p>A monthly printed directory that is checked, frozen, printed, verified and published - and can be rolled back.</p>

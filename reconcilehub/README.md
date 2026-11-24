@@ -52,14 +52,15 @@ everything is decided it writes `snapshots/<cycle>/v1/approved_roster.csv`, an i
 python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"
 python -m reconcilehub demo --out build/demo
-python -m pytest                                  # 15 tests
+python -m pytest                                  # 16 tests
 ```
 
 Step by step: `init`, `reconcile`, `decide --decisions file.csv`, `commit --approve ROLE`.
 
 ## Tests
 
-15 tests: five id-normalisation cases; names normalise without losing meaning; exact matches decided
+16 tests: five id-normalisation cases; names normalise without losing meaning; a name that drifts under
+the same id is reported but never changes access (found by a Lab experiment); exact matches decided
 and the rest held, with nothing added or removed for anyone in a held case; same names kept apart;
 commit blocked while held, with a draft to admins; same-person decisions become RENAME and FIX;
 different-person restores the old member; approval writes the snapshot, workbook and report; re-runs

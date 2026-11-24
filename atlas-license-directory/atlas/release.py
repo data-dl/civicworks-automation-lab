@@ -10,7 +10,6 @@ CURRENT back at an earlier period only after re-hashing every file in it.
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import sqlite3
 from dataclasses import dataclass, field
@@ -18,7 +17,7 @@ from pathlib import Path
 
 from . import __version__
 from .pdf import EDITIONS, read_entries, render, verify
-from .runkit import Manifest, sha256_bytes, sha256_file, utc_now, write_json
+from .runkit import Manifest, replace, sha256_bytes, sha256_file, utc_now, write_json
 from .stages import Workspace, freeze, ingest_and_check
 from .synth import DISTRICTS
 
@@ -158,7 +157,7 @@ def _run_stage(ws: Workspace, period: str, stage: str, approve_as: str | None, r
     manifest = {p.name: sha256_file(p) for p in sorted(staged.glob("*.pdf"))}
     write_json(staged / "MANIFEST.json", manifest)
     ws.published.mkdir(parents=True, exist_ok=True)
-    os.replace(staged, target)  # one rename: readers see all twelve files or none
+    replace(staged, target)  # one rename: readers see all twelve files or none
     previous = current(ws)
     write_json(ws.published / "CURRENT.json", {"period": period, "switched_at": utc_now(), "reason": "new release",
                                               "manifest_sha256": sha256_file(target / "MANIFEST.json")})

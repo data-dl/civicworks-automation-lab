@@ -27,7 +27,7 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
-from . import rowdiff
+from . import experiments, rowdiff
 
 ROOT = Path(__file__).resolve().parents[2]          # the repository
 LEARN = ROOT / "learn"
@@ -49,7 +49,8 @@ def load_content() -> dict:
     return {"pipelines": pipelines,
             "glossary": yaml.safe_load((LEARN / "glossary.yaml").read_text(encoding="utf-8"))["terms"],
             "ideas": yaml.safe_load((LEARN / "big_ideas.yaml").read_text(encoding="utf-8"))["ideas"],
-            "interview": yaml.safe_load((LEARN / "interview.yaml").read_text(encoding="utf-8"))}
+            "interview": yaml.safe_load((LEARN / "interview.yaml").read_text(encoding="utf-8")),
+            "experiments": yaml.safe_load((LEARN / "experiments.yaml").read_text(encoding="utf-8"))}
 
 
 CONTENT = load_content()
@@ -69,6 +70,9 @@ class Run:
     started: float = field(default_factory=time.time)
     snapshots: list[dict] = field(default_factory=list)   # per pause: files and table counts
     changes: dict = field(default_factory=dict)            # scene number -> what changed during it
+    experiment: dict | None = None                         # edits to apply while paused, see experiments.py
+    auto: bool = False                                     # run straight through without waiting for a person
+    applied: dict | None = None                            # what the experiment changed
 
 
 RUN_LOCK = threading.Lock()
@@ -105,7 +109,7 @@ def diff(before: dict, after: dict) -> dict:
             "rows": rowdiff.changes(before.get("contents", {}), after.get("contents", {}))}
 
 
-def start_run(key: str) -> Run:
+def start_run(key: str, experiment: dict | None = None, auto: bool = False) -> Run:
     if key not in PROJECTS:
         raise ValueError(f"unknown pipeline {key}")
     run_id = f"{key}-{time.strftime('%H%M%S')}-{uuid.uuid4().hex[:4]}"
@@ -115,7 +119,7 @@ def start_run(key: str) -> Run:
     proc = subprocess.Popen([sys.executable, "-m", key, "demo", "--out", str(ws)], cwd=ROOT / PROJECTS[key],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                             encoding="utf-8", env=env, creationflags=NO_WINDOW, bufsize=1)
-    run = Run(run_id, key, ws, proc)
+    run = Run(run_id, key, ws, proc, experiment=experiment, auto=auto)
     run.snapshots.append(snapshot(ws))
     with RUN_LOCK:
         ACTIVE[run_id] = run
@@ -148,7 +152,83 @@ def _pause(run: Run, final: bool = False) -> None:
     change["traced"] = rowdiff.trace(snap["contents"], said)
     run.changes[run.scene] = change
     run.snapshots.append(snap)
+    exp = run.experiment
+    if exp and not final and run.applied is None and run.scene == exp.get("after", 1):
+        _apply_experiment(run, exp)
     run.status = "done" if final else "paused"
+    if run.auto and not final:
+        next_scene(run)
+
+
+def _apply_experiment(run: Run, exp: dict) -> None:
+    before = rowdiff.contents(run.workspace)
+    try:
+        done = experiments.apply(run.workspace, exp["edits"])
+        after = rowdiff.contents(run.workspace)
+        run.applied = {"edits": done, "rows": rowdiff.changes(before, after)}
+    except (experiments.ExperimentError, OSError, sqlite3.Error) as exc:
+        run.applied = {"error": str(exc), "edits": []}
+    run.snapshots[-1] = snapshot(run.workspace)       # the next scene shows only what the pipeline did
+    with RUN_LOCK:
+        for text in run.applied["edits"] or [run.applied.get("error", "")]:
+            run.lines.append({"scene": run.scene, "text": f"~~ experiment: {text}"})
+
+
+BASELINES: dict[str, Run] = {}
+
+
+def find_experiment(key: str, exp_id: str) -> dict:
+    exp = next((e for e in CONTENT["experiments"].get(key, {}).get("experiments", []) if e["id"] == exp_id), None)
+    if exp is None:
+        raise ValueError(f"unknown experiment {exp_id}")
+    return exp
+
+
+def start_experiment(key: str, exp_id: str) -> dict:
+    exp = find_experiment(key, exp_id)
+    base = BASELINES.get(key)
+    if base is None or (base.status == "done" and base.exit_code != 0):
+        base = BASELINES[key] = start_run(key, auto=True)
+    test = start_run(key, experiment=exp, auto=True)
+    return {"normal": base.id, "experiment": test.id}
+
+
+def compare_runs(a: Run, b: Run) -> list[dict]:
+    with RUN_LOCK:
+        return experiments.compare(list(a.lines), [x for x in b.lines if not x["text"].startswith("~~ ")])
+
+
+# --- the run's data: SQL console and editable CSV inputs -------------------------------------------------
+def run_dbs(run: Run) -> list[str]:
+    return sorted(p.relative_to(run.workspace).as_posix() for p in run.workspace.rglob("*.sqlite")) \
+        if run.workspace.exists() else []
+
+
+def run_sql(path: Path, sql: str, limit: int = 200) -> dict:
+    """Run one statement against a run database. It is a sandbox: writes are allowed, but only here."""
+    if path.suffix != ".sqlite":
+        raise ValueError("SQL runs only against the run's .sqlite files")
+    con = sqlite3.connect(path)
+    try:
+        cur = con.execute(sql)
+        if cur.description:
+            cols = [d[0] for d in cur.description]
+            rows = [["" if v is None else str(v) for v in r] for r in cur.fetchmany(limit + 1)]
+            return {"cols": cols, "rows": rows[:limit], "more": len(rows) > limit}
+        con.commit()
+        return {"cols": [], "rows": [], "changed": cur.rowcount}
+    finally:
+        con.close()
+
+
+def save_csv(path: Path, rows: list[list[str]]) -> int:
+    import csv
+
+    if path.suffix != ".csv" or len(rows) < 1 or len({len(r) for r in rows}) != 1:
+        raise ValueError("a CSV needs a header row and the same number of cells in every row")
+    with path.open("w", encoding="utf-8", newline="") as f:
+        csv.writer(f).writerows(rows)
+    return len(rows) - 1
 
 
 def next_scene(run: Run) -> None:
@@ -330,7 +410,27 @@ class Handler(BaseHTTPRequestHandler):
                     lines = run.lines[since:]
                 return self._json({"id": run.id, "key": run.key, "status": run.status, "scene": run.scene,
                                    "exit": run.exit_code, "lines": lines, "next": since + len(lines),
-                                   "changes": run.changes})
+                                   "changes": run.changes, "applied": run.applied})
+            if url.path == "/api/compare":
+                return self._json({"lines": compare_runs(ACTIVE[q["a"][0]], ACTIVE[q["b"][0]])})
+            if url.path == "/api/csv":
+                import csv
+
+                path = confined(self._run(q), q["path"][0])
+                if path.suffix != ".csv":
+                    raise ValueError("not a CSV file")
+                with path.open(encoding="utf-8", newline="") as f:
+                    rows = list(csv.reader(f))
+                if len(rows) > 3000:
+                    raise ValueError("too large to edit here; open it in a spreadsheet")
+                return self._json({"rows": rows})
+            if url.path == "/api/dbs":
+                return self._json({"dbs": run_dbs(self._run(q))})
+            if url.path == "/api/latest":
+                key = q["key"][0]
+                runs = [r for r in ACTIVE.values() if r.key == key and r.experiment is None and r.workspace.exists()]
+                runs.sort(key=lambda r: r.started)
+                return self._json({"run": runs[-1].id if runs else None, "status": runs[-1].status if runs else None})
             if url.path == "/api/files":
                 run = self._run(q)
                 files = sorted(p.relative_to(run.workspace).as_posix() for p in run.workspace.rglob("*")
@@ -361,6 +461,17 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/start":
                 run = start_run(body["key"])
                 return self._json({"run": run.id})
+            if url.path == "/api/experiment":
+                return self._json(start_experiment(body["key"], body["id"]))
+            if url.path == "/api/sql":
+                return self._json(run_sql(confined(ACTIVE[body["run"]], body["db"]), body["sql"]))
+            if url.path == "/api/save-csv":
+                run = ACTIVE[body["run"]]
+                if run.status == "running":
+                    raise ValueError("wait until the run is paused")
+                return self._json({"rows": save_csv(confined(run, body["path"]), body["rows"])})
+            if url.path == "/api/run-through":
+                return self._json({"run": start_run(body["key"], auto=True).id})
             if url.path == "/api/next":
                 next_scene(ACTIVE[body["run"]])
                 return self._json({"ok": True})
@@ -372,15 +483,22 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/open-folder":
                 folder = confined(ACTIVE[body["run"]], ".") if body.get("run") else Path(body["folder"])
                 if RUNS.resolve() in folder.resolve().parents or folder.resolve() == RUNS.resolve():
-                    os.startfile(folder)  # noqa: S606 - local Lab only, confined to its run folders
+                    _reveal(folder)
                 return self._json({"ok": True})
             if url.path == "/api/quit":
                 self._json({"ok": True})
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return None
             return self._json({"error": "not found"}, 404)
-        except (KeyError, ValueError, PermissionError) as exc:
+        except (KeyError, ValueError, PermissionError, sqlite3.Error) as exc:
             return self._json({"error": f"{exc.__class__.__name__}: {exc}"}, 400)
+
+
+def _reveal(folder: Path) -> None:
+    if sys.platform == "win32":
+        os.startfile(folder)  # noqa: S606 - local Lab only, confined to its run folders
+    else:
+        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(folder)])
 
 
 def serve(port: int = 8870, open_browser: bool = True) -> None:

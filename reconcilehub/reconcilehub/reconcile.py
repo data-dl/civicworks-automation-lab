@@ -214,6 +214,10 @@ def reconcile(ws: Workspace, cycle: str) -> Recon:
                               "role": exp["role"], "reason": f"system has {cur['role']}; approved {exp['role']}"})
         elif not any(a["member_id"] == pid for a in r.actions):
             r.unchanged += 1
+        if cur is not None and norm_name(cur["name"]) != norm_name(exp["name"]):
+            # Same id, different name: never a reason to change access, but a person should know.
+            r.notes.append(f"{pid}: the access system says '{cur['name']}', the approval says '{exp['name']}' - "
+                           "same member id, access unchanged; check the spelling")
         r.approved[pid] = {"name": exp["name"], "space": exp["space"], "role": exp["role"]}
     for pid, cur in sorted(have.items()):
         if pid not in expected and pid not in paired_new:

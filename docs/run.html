@@ -3,12 +3,18 @@
 <meta name="description" content="Eight tested data pipelines on invented data: validation, approvals, rollback, orchestration.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="assets/site.css"></head><body>
-<header class="top"><div class="in"><a class="brand" href="index.html"><i>CW</i>CivicWorks Automation Lab</a><nav><a href="index.html" class="">Overview</a><a href="index.html#pipelines" class="">Pipelines</a><a href="learn.html" class="">Concepts</a><a href="run.html" class="on">Run it</a><a href="https://github.com/data-dl/civicworks-automation-lab" class="">GitHub</a></nav></div></header>
+<header class="top"><div class="in"><a class="brand" href="index.html"><i>CW</i>CivicWorks Automation Lab</a><nav><a href="index.html" class="">Overview</a><a href="index.html#pipelines" class="">Pipelines</a><a href="learn.html" class="">Concepts</a><a href="run.html" class="on">Run it</a><a href="roles.html" class="">For hiring teams</a><a href="https://github.com/data-dl/civicworks-automation-lab" class="">GitHub</a></nav></div></header>
 <main>
 <section><span class="eyebrow">Try it</span><h1>Run the pipelines yourself</h1>
 <p class="lede">Everything runs locally with Python 3.11 or newer. No accounts, no network, no real data. Each demo generates its own invented
 data from a fixed seed, so you see exactly what the videos show.</p></section>
-<section><h2>Install</h2><pre>git clone https://github.com/data-dl/civicworks-automation-lab
+<section class="panel"><h2>One command</h2><p class="lede">With Python 3.11 or newer installed:</p>
+<pre>git clone https://github.com/data-dl/civicworks-automation-lab
+cd civicworks-automation-lab
+python start.py</pre><p class="lede">It creates a private environment in <code>.venv</code>, installs the eight pipelines and the Lab, checks
+that every demo runs, and opens the Lab in your browser. Run it again any time - it skips what is already done. On Windows you can also
+double-click <code>Start CivicWorks Lab.cmd</code>.</p></section>
+<section><h2>Or step by step</h2><pre>git clone https://github.com/data-dl/civicworks-automation-lab
 cd civicworks-automation-lab
 python -m venv .venv
 .venv/Scripts/activate            # macOS/Linux: source .venv/bin/activate
@@ -16,8 +22,9 @@ pip install -e "./atlas-license-directory[dev]" -e "./openbadge-registry-publish
 <section><h2>Run any demo</h2><p class="lede">Run each one from its own folder.</p><div class="scroll"><table><tr><th>pipeline</th><th>command</th></tr><tr><td>Atlas License Directory</td><td><code>cd atlas-license-directory &amp;&amp; python -m atlas demo</code></td></tr><tr><td>OpenBadge Registry Publisher</td><td><code>cd openbadge-registry-publisher &amp;&amp; python -m openbadge demo</code></td></tr><tr><td>Regional Programs Analytics</td><td><code>cd regional-programs-analytics &amp;&amp; python -m regional demo</code></td></tr><tr><td>LedgerGuard Data Quality</td><td><code>cd ledgerguard-data-quality &amp;&amp; python -m ledgerguard demo</code></td></tr><tr><td>SafeSite Compliance Cycle</td><td><code>cd safesite-compliance-cycle &amp;&amp; python -m safesite demo</code></td></tr><tr><td>MasterRecord Steward</td><td><code>cd masterrecord-steward &amp;&amp; python -m masterrecord demo</code></td></tr><tr><td>ReconcileHub</td><td><code>cd reconcilehub &amp;&amp; python -m reconcilehub demo</code></td></tr><tr><td>OpsPilot Control Center</td><td><code>cd opspilot-control-center &amp;&amp; python -m opspilot demo</code></td></tr></table></div></section>
 <section><h2>The CivicWorks Lab: run it one scene at a time</h2>
 <p class="lede">The Lab is a small local web app. Pick a pipeline and it runs the real demo one scene at a time: before each scene it explains what
-is about to happen and asks you to predict the result; after it, it shows the output and every file and database table that changed. You can
-open any spreadsheet, Word report, PDF page or database right in the page. It also has the concepts, glossary and question flashcards.</p>
+is about to happen and asks you to predict the result; after it, it shows the output and the exact rows and cells that changed. Between
+scenes you can change the data yourself - edit an input file or run SQL - and watch the pipeline react. Each pipeline also has one-click
+experiments, a SQL console with example questions, and the concepts, glossary and interview flashcards.</p>
 <pre>python -m civicworks_lab          # opens http://127.0.0.1:8870</pre></section>
 <section><h2>Step mode without the Lab</h2><p class="lede">Any demo pauses before each scene if <code>CIVICWORKS_STEP=1</code> is set; press Enter to continue.</p>
 <pre>CIVICWORKS_STEP=1 python -m atlas demo --out build/step</pre></section>

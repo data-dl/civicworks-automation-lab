@@ -28,7 +28,7 @@ jobs:
           python -m pip install $args -e "./lab[dev]"
       - name: lint
         shell: bash
-        run: ruff check $(for pair in $PROJECTS; do echo "${pair%%:*}"; done) tools lab
+        run: ruff check $(for pair in $PROJECTS; do echo "${pair%%:*}"; done) tools lab start.py
       - name: tests, project by project
         shell: bash
         run: |
@@ -40,3 +40,19 @@ jobs:
           for pair in $PROJECTS; do
             (cd "${pair%%:*}" && python -m "${pair##*:}" demo --out build/ci-demo > /dev/null) || exit 1
           done
+
+  turnkey:
+    # The one-command setup a newcomer would use, on clean machines: creates .venv, installs everything,
+    # runs every project's tests and demo.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: python start.py --check --no-lab
+        run: python start.py --check --no-lab
