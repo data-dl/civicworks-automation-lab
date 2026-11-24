@@ -1,0 +1,43 @@
+WEBVTT
+
+00:00:00.250 --> 00:00:08.967
+LedgerGuard Data Quality. Daily export checks that never mistake an empty file for success, with archives you can safely restore.
+
+00:00:09.983 --> 00:00:16.016
+Scene 1. Three systems and an old desktop export, with five data problems planted for the checks to find. The desk app's export: it always says 'Export
+
+00:00:16.016 --> 00:00:22.049
+complete'.
+
+00:00:23.450 --> 00:00:31.203
+Scene 2. Day one: every export proves usable, then the checks find each planted problem. Five: one depot class nobody may service, two incomplete items, one
+
+00:00:31.203 --> 00:00:38.955
+serial under two classes, one lapsed technician.
+
+00:00:40.450 --> 00:00:51.755
+Scene 3. Day two: the desktop program reports success but writes no rows. Yes, marked stale, with the reason; the empty file is in quarantine.
+
+00:00:53.183 --> 00:01:03.862
+Scene 4. Day three: an update renames a column in the export. No - all 120 rows are there. Only the column check catches it.
+
+00:01:05.317 --> 00:01:17.878
+Scene 5. Day four is healthy. Yesterday's set moves into the archive with its manifest before today's replaces it. Three: the 23rd, 24th and 25th.
+
+00:01:19.317 --> 00:01:29.554
+Scene 6. Restore is tried on an archive that someone edited, then on an intact one. It is kept too, in archive/<day>-replaced-by-restore.
+
+00:01:30.917 --> 00:01:36.640
+The dashboard on the day the export columns changed: quarantined, with the reason.
+
+00:01:38.450 --> 00:01:44.330
+The exception workbook: each job, rows expected and found, exceptions.
+
+00:01:46.117 --> 00:01:51.999
+An archived day's manifest: every file's fingerprint, checked before any restore.
+
+00:01:53.783 --> 00:02:00.790
+What this run showed: An empty or reshaped export never counted as success. Yesterday's good file kept, clearly marked stale. Every day archived with
+
+00:02:00.790 --> 00:02:07.796
+fingerprints. A tampered archive is refused.

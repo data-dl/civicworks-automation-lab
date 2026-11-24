@@ -1,0 +1,59 @@
+key: ledgerguard
+dir: ledgerguard-data-quality
+title: LedgerGuard Data Quality
+order: 4
+tagline: Daily export checks that never mistake an empty file for success, with archives you can safely restore.
+skills: [data-quality checks across sources, export validation, schema drift detection, quarantine, archiving with manifests, restore, exception reporting, dashboards]
+story: >-
+  Imagine a rental shop for big machines with four branches. Every morning a computer pulls lists from
+  three systems and from one old program that can only share its data by pressing an Export button. One
+  day that old program says "Export complete" but saves an empty sheet. The computer sees today's file is
+  there and reports "all good" - and every report that morning is built on nothing. LedgerGuard refuses
+  to believe a file just because it exists: it counts the rows, checks the columns, and if anything is off
+  it moves the file aside and keeps yesterday's good one, clearly marked as old.
+one_minute: >-
+  LedgerGuard runs four daily checks over an equipment database, two CSV systems and a mock desktop
+  program's export: every class at every depot has an authorised technician, every item has a serial and
+  service date, no serial is registered under two classes, and no technician is active with every
+  authorisation lapsed. Before any check, each export must prove it is usable: exact columns, the row
+  count the source itself reports, no blank keys. An export that fails is quarantined with the exact
+  reason and yesterday's verified file is carried forward and marked stale. Each day's outputs are
+  published as one set after the previous set is archived with a SHA-256 manifest, and restore refuses
+  any archive whose files no longer match.
+inputs:
+  - {name: registry.sqlite, what: "Equipment: id, class, depot, serial, last service date, status"}
+  - {name: roster.csv, what: "Technicians: id, alias, depot, active flag"}
+  - {name: authorizations.csv, what: "Which classes each technician may service, and until when"}
+  - {name: desk app export, what: "The same equipment list, but only available through an old program's Export button"}
+steps:
+  - {name: Export, plain: "Produce one CSV per check from its source.", technical: "SQLite, CSV and mock desktop adapters, each also reporting the source's own row count"}
+  - {name: Prove, plain: "Make sure the file exists, has exactly the right columns, the right number of rows and no blank keys.", technical: "prove(): header equality, expected vs observed rows, non-blank key"}
+  - {name: Quarantine, plain: "Move an unusable file aside with the reason, and keep yesterday's good file instead.", technical: "quarantine/<day>/; carried_forward; stale flag in the manifest"}
+  - {name: Check, plain: "Look through each proven file for records that break the business rules.", technical: "four exception predicates producing human-readable details"}
+  - {name: Archive and publish, plain: "Move yesterday's set into the archive with its fingerprints, then put today's set in its place.", technical: "os.replace current -> archive/<day>; staging -> current; archive_item rows"}
+outputs:
+  - {name: "current/exceptions.xlsx", what: "A summary tab and one tab per check"}
+  - {name: "current/dashboard.html", what: "A card per check: verified or quarantined, rows expected and found, exceptions"}
+  - {name: "archive/<day>/", what: "Every earlier day's set with its MANIFEST.json"}
+decisions:
+  - {choice: "Compare the exported rows with the source's own count", instead_of: "Accepting any non-empty file", why: "A truncated export has rows; only the source's count shows that a third is missing."}
+  - {choice: "Keep yesterday's file, marked stale", instead_of: "Publishing nothing for that check", why: "People still have the last good data, and the dashboard tells them it is old and why."}
+  - {choice: "Archive before replacing", instead_of: "Overwriting the outputs", why: "Every day can be restored exactly, and the manifest proves it has not been altered."}
+  - {choice: "Treat the desk app's 'Export complete' message as meaningless", instead_of: "Trusting the program", why: "Programs report success when they finish running, not when they produced the right data."}
+failures:
+  - {what: "Export writes only a header row", result: "Quarantined: 'the file has a header but no rows; the source has 120'."}
+  - {what: "A column is renamed by a software update", result: "Quarantined: 'columns changed: missing serial_token, unexpected serial_no'."}
+  - {what: "An archived file is edited", result: "Restore refuses and names the file."}
+scenes:
+  1: {explain: "Three systems and an old desktop export, with five data problems planted for the checks to find.", predict: "Which source is most likely to fail silently?", answer: "The desk app's export: it always says 'Export complete'."}
+  2: {explain: "Day one: every export proves usable, then the checks find each planted problem.", predict: "How many exceptions will the four checks report?", answer: "Five: one depot class nobody may service, two incomplete items, one serial under two classes, one lapsed technician."}
+  3: {explain: "Day two: the desktop program reports success but writes no rows.", predict: "Will today's dashboard show yesterday's data for that check?", answer: "Yes, marked stale, with the reason; the empty file is in quarantine."}
+  4: {explain: "Day three: an update renames a column in the export.", predict: "Would a 'file exists and is not empty' test catch this?", answer: "No - all 120 rows are there. Only the column check catches it."}
+  5: {explain: "Day four is healthy. Yesterday's set moves into the archive with its manifest before today's replaces it.", predict: "How many archived days are there now?", answer: "Three: the 23rd, 24th and 25th."}
+  6: {explain: "Restore is tried on an archive that someone edited, then on an intact one.", predict: "What happens to the set that was current before the restore?", answer: "It is kept too, in archive/<day>-replaced-by-restore."}
+questions:
+  - {q: "Why isn't 'the file exists' enough?", simple: "Programs can save an empty or half-finished file and still say they worked.", technical: "prove() checks exact header, row count against the source's own count, and non-blank keys before any QA runs."}
+  - {q: "What is schema drift?", simple: "When the shape of the data changes - a column renamed or removed - without anyone telling you.", technical: "Header comparison against the contract; missing and unexpected columns are named in the quarantine reason."}
+  - {q: "How do you restore safely?", simple: "Check every archived file's fingerprint first; if any changed, refuse.", technical: "MANIFEST.json SHA-256 per file; restore copies to staging then swaps, keeping the displaced set."}
+try:
+  - {title: "Try a truncated export", how: "python -m ledgerguard run --workspace w --date 2026-11-24 --desk-mode truncated", expect: "Quarantined: 40 rows exported, the source has 120."}

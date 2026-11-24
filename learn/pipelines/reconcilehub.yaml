@@ -1,0 +1,56 @@
+key: reconcilehub
+dir: reconcilehub
+title: ReconcileHub
+order: 7
+tagline: Monthly access-roster reconciliation that suggests near-matches and never merges two people on a guess.
+skills: [entity resolution, identifier normalisation, fuzzy matching with review, reconciliation reporting, idempotent snapshots, change control]
+story: >-
+  Four maker spaces use key cards. Every month someone compares three lists: who the door system lets
+  in, who was approved last month, and who signed up this month. Most people match exactly. But one
+  person's card number changed, one row lost its number entirely, and one sign-up looks like an existing
+  member typed differently. A careless matcher would merge people or lock someone out. ReconcileHub
+  decides the exact matches itself, holds the uncertain ones with a suggestion, and only produces the
+  list of changes for the door system once a person has decided each case.
+one_minute: >-
+  ReconcileHub normalises ids - trimmed, upper case, zero-padded - while keeping the raw value, and
+  compares the access system's roster with last month's approvals plus this month's registrations. Exact
+  matches become ADD, REMOVE or CHANGE ROLE automatically. A missing id with a near-identical name in the
+  same space, a row with no id, and a registration that resembles an existing member are held with a
+  suggestion and a similarity score. A reviewer records same-person, different-person or exclude; only
+  then do RENAME ID and FIX ID actions appear. Approval writes a hashed roster snapshot, an import workbook
+  and a change report; the same inputs again produce NOTHING NEW, and a change after approval needs a
+  reason and becomes version 2.
+inputs:
+  - {name: current_roster.csv, what: "What the door-access system actually has"}
+  - {name: prior_approvals.csv, what: "Last month's approved roster"}
+  - {name: new_registrations.csv, what: "This month's sign-ups, some without a member id"}
+steps:
+  - {name: Normalise, plain: "Write every id one standard way, keeping the original.", technical: "norm_id(): strip, upper, zero-pad; raw_id kept"}
+  - {name: Match, plain: "Decide exact matches; hold anything that would need a guess, with a suggestion.", technical: "set comparison; SequenceMatcher >= 0.88 within the same space"}
+  - {name: Decide, plain: "A reviewer records same-person, different-person or exclude for each held case.", technical: "match_case.disposition and reviewer"}
+  - {name: Commit, plain: "Blocked while anything is held; otherwise write the approved roster, import workbook and report.", technical: "snapshot hash; NOTHING NEW / REFUSED / --supersede"}
+outputs:
+  - {name: "exports/<month>/Access_import_<month>_v1.xlsx", what: "Import, Reviewed cases, Approved roster tabs"}
+  - {name: "snapshots/<month>/v1/approved_roster.csv", what: "The approved roster, hashed"}
+  - {name: "exports/<month>/Change_report_<month>_v1.md", what: "Every change, every reviewed case, every note"}
+decisions:
+  - {choice: "Suggest, never merge", instead_of: "Merging names above a similarity threshold", why: "Two real people can have nearly the same name; a wrong merge gives one person another's access."}
+  - {choice: "Do nothing for people in a held case", instead_of: "Adding or removing them anyway", why: "Until a person decides, any action might be the wrong one."}
+  - {choice: "Hash the approved roster", instead_of: "Comparing files by date", why: "The hash proves whether the result really changed, so a rerun writes nothing and a real change needs a reason."}
+failures:
+  - {what: "An id changed in the access system", result: "Held as possible-id-change with a suggestion; nothing is added or removed for either id."}
+  - {what: "Commit before review", result: "BLOCKED with a draft to the space admins."}
+  - {what: "A late registration after approval", result: "REFUSED unless superseded with a reason; v2 sits beside v1."}
+scenes:
+  1: {explain: "Three monthly inputs with the usual mess planted.", predict: "Which of the planted cases can be decided automatically?", answer: "The formatting-only id, the role drift and the member who should be removed. The changed id, missing id and look-alike registration need a person."}
+  2: {explain: "Exact matches are decided; three cases are held with a suggestion and a score.", predict: "Will FC-00031 or FC-00931 be added or removed?", answer: "Neither, while their case is held."}
+  3: {explain: "Approval is tried before review.", predict: "What does the system do instead of approving?", answer: "It blocks and drafts a note to the space admins listing the held cases."}
+  4: {explain: "A reviewer decides each case. Only now do RENAME ID and FIX ID actions appear.", predict: "What does 'same-person' turn the changed-id case into?", answer: "A RENAME ID action from FC-00031 to FC-00931."}
+  5: {explain: "Approved: snapshot, import workbook and change report.", predict: "What proves the approved roster later?", answer: "Its SHA-256, recorded with the release."}
+  6: {explain: "The same inputs and decisions again.", predict: "Will a v2 appear?", answer: "No. Identical hash: NOTHING NEW."}
+  7: {explain: "A late registration after approval: refused, then superseded with a reason.", predict: "What happens to v1?", answer: "It stays exactly where it was; v2 sits beside it."}
+questions:
+  - {q: "What is entity resolution?", simple: "Working out which records in different lists are the same real person.", technical: "Exact key matching after normalisation, fuzzy candidate generation with a threshold, and human adjudication."}
+  - {q: "Why not auto-merge at 100% name similarity?", simple: "Different people can have the same name.", technical: "Name similarity is evidence, not identity; FC-00005 and FC-00059 share a name and are deliberately kept apart."}
+try:
+  - {title: "Decide differently", how: "Mark the id-change case different-person and reconcile.", expect: "FC-00031 is restored (ADD) and FC-00931 removed (REMOVE)."}

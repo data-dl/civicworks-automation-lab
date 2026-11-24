@@ -1,0 +1,61 @@
+key: openbadge
+dir: openbadge-registry-publisher
+title: OpenBadge Registry Publisher
+order: 2
+tagline: A public data file that only goes live after it has been fetched back and proven identical.
+skills: [JSON and JSON Schema, canonical serialisation, release engineering, HTTP verification, immutable versions, pointer switching, rollback, consumer feedback]
+story: >-
+  Think of a school website with a list of every student's certificates that other schools download.
+  If a certificate is listed twice, or the file gets cut off while uploading, every school downloads the
+  broken list. OpenBadge publishes that list for an invented academy. It checks the list, uploads it as a
+  new dated file next to the old ones, downloads it again to make sure it arrived perfectly, and only then
+  changes the sign that says "this is the latest list". If anything is wrong, the sign keeps pointing at
+  yesterday's list.
+one_minute: >-
+  OpenBadge builds a public JSON registry of the badges learners hold. The file is written canonically -
+  sorted keys, fixed spacing - so the same data always has the same SHA-256. Three layers of checks run:
+  a JSON Schema for shape, rules for meaning like unique ids and real dates, and a comparison with the live
+  release that blocks if more than 20% of badges would vanish. A passing release is written as a new dated
+  file that is never overwritten, fetched back over HTTP from a local server and compared byte for byte, and
+  only then does the latest.json pointer move. The outside catalogue's import is tracked separately as
+  pending, accepted or rejected, and rollback only goes to a release that verified and still matches its hash.
+inputs:
+  - {name: registry.sqlite, what: "Learners (aliases only), badge types and the badges each learner holds, with dates and status"}
+steps:
+  - {name: Snapshot, plain: "Read every approved badge and write the registry file in one exact, repeatable format.", technical: "canonical JSON: sort_keys, compact separators, UTF-8; SHA-256 of the bytes"}
+  - {name: Validate, plain: "Check the file's shape, then each record's meaning, then compare it with what consumers see now.", technical: "JSON Schema draft 2020-12; unique ids, real dates, vocabulary; delta threshold 20%"}
+  - {name: Publish data, plain: "Write a new dated file beside the old ones. An existing release file is never written over.", technical: "releases/registry-Rnnnn.json, refuses if it exists"}
+  - {name: Verify over HTTP, plain: "Download the file from the web server, as an outsider would, and compare it exactly with what was built.", technical: "local ThreadingHTTPServer; status 200, hash match, sample records"}
+  - {name: Switch pointer, plain: "Only now change latest.json to point at the new file.", technical: "atomic write of latest.json; pointer_history row"}
+outputs:
+  - {name: "site/releases/registry-Rnnnn.json", what: "Every release ever made, unchanged"}
+  - {name: "site/latest.json", what: "The pointer consumers read: release id, path, hash, record count"}
+  - {name: "runs/Rnnnn/manifest.json", what: "Stages, hashes, versions and verdict for every attempt"}
+  - {name: "tickets/*.md", what: "A correction ticket for every failed upload or rejected import"}
+decisions:
+  - {choice: "Canonical JSON", instead_of: "Whatever format the library produces", why: "Identical data must produce identical bytes, or the hash cannot tell you whether the content changed."}
+  - {choice: "Verify by downloading over HTTP", instead_of: "Checking the file exists on disk", why: "Consumers download it. A file can exist and still be truncated, or be served wrongly; fetching it is the only proof that matches what they get."}
+  - {choice: "Move a small pointer, never rewrite the data file", instead_of: "Overwriting registry.json in place", why: "Readers switch from the whole old version to the whole new one in one step, and rollback is just moving the pointer back."}
+  - {choice: "Track technical and business acceptance separately", instead_of: "One status", why: "A file can be perfectly published and still be rejected or queued by the consumer. Mixing the two hides which team must act."}
+  - {choice: "Block if more than 20% of badges disappear", instead_of: "Publishing whatever the data says", why: "A sudden mass removal is usually an upstream mistake; making someone confirm it with --accept-drop is cheaper than a wrong public file."}
+failures:
+  - {what: "A badge listed twice, or a 30 February date", result: "Blocked; each finding names the badge; nothing is published."}
+  - {what: "The upload is cut off half way", result: "The hash check fails, the pointer stays on the previous release, a ticket opens."}
+  - {what: "Someone deletes the live file", result: "The consumer rejects the import as missing_target; rollback to the last verified release recovers."}
+  - {what: "Rollback is asked to go to a release that never verified", result: "Refused."}
+scenes:
+  1: {explain: "A generator invents 120 learners and about 300 badges from a fixed seed.", predict: "If you rerun with the same seed, will the registry file be identical?", answer: "Yes, byte for byte - that is what the seed and canonical JSON guarantee."}
+  2: {explain: "The first release passes every check, is uploaded, downloaded again and matched, and then the pointer moves. The catalogue imports it.", predict: "When does latest.json change - before or after the download check?", answer: "After. The pointer only moves once the downloaded file matches the built one exactly."}
+  3: {explain: "Two bad records are planted: a duplicated badge and an impossible date.", predict: "Will the release file R0002 exist on the site?", answer: "No. The release is blocked at validation, before anything is written to the site."}
+  4: {explain: "The data is fixed, but this time the upload is deliberately cut off half way.", predict: "What do consumers see after this?", answer: "Still R0001. The hash mismatch stops the pointer, and a correction ticket opens."}
+  5: {explain: "The release is rerun and publishes. The catalogue's first check only queues it; the next day it accepts it.", predict: "Is R0004 'verified' while the catalogue says 'pending'?", answer: "Yes. Technical verification and business acceptance are recorded separately."}
+  6: {explain: "Rollback is asked to go to the release that failed verification, then to the previous good one.", predict: "Which request is refused?", answer: "Rolling back to R0003, which never verified. Rolling back to R0001 works after it is re-checked over HTTP."}
+  7: {explain: "The history shows every attempt, including the blocked and failed ones.", predict: "Why keep records of failures?", answer: "So you can explain what happened and prove nothing bad was ever pointed at."}
+questions:
+  - {q: "Why not just overwrite registry.json?", simple: "Because if the new one is broken, everyone gets the broken one and the good one is gone.", technical: "Immutable versioned files plus a pointer give atomic switch-over and trivial rollback; overwriting loses both."}
+  - {q: "How do you know the published file is complete?", simple: "The program downloads it back and checks its fingerprint matches exactly what it built.", technical: "HTTP GET from a local server, status 200, SHA-256 equality, record count and sample-record comparison before the pointer write."}
+  - {q: "What is canonical JSON and why does it matter?", simple: "Always writing the file the same way, so the same data always gives the same fingerprint.", technical: "sort_keys, fixed separators, UTF-8, trailing newline; makes content hashing meaningful and diffs stable."}
+  - {q: "What is the difference between verified and accepted?", simple: "Verified means we published it correctly; accepted means the other side imported it.", technical: "technical_status vs consumer_status on registry_release; consumer_result logs every import attempt."}
+try:
+  - {title: "Make a large removal", how: "Revoke a third of the badges in registry.sqlite and run a release.", expect: "release_delta blocks; rerun with --accept-drop to publish deliberately."}
+  - {title: "Delete the live file", how: "Delete the file latest.json points to, then run consume.", expect: "Rejected as missing_target with a ticket; rollback recovers."}

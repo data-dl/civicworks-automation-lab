@@ -1,0 +1,55 @@
+WEBVTT
+
+00:00:00.250 --> 00:00:08.178
+OpenBadge Registry Publisher. A public data file that only goes live after it has been fetched back and proven identical.
+
+00:00:09.183 --> 00:00:21.616
+Scene 1. A generator invents 120 learners and about 300 badges from a fixed seed. Yes, byte for byte - that is what the seed and canonical JSON guarantee.
+
+00:00:22.983 --> 00:00:30.944
+Scene 2. The first release passes every check, is uploaded, downloaded again and matched, and then the pointer moves. The catalogue imports it. After. The
+
+00:00:30.944 --> 00:00:38.905
+pointer only moves once the downloaded file matches the built one exactly.
+
+00:00:40.250 --> 00:00:46.065
+Scene 3. Two bad records are planted: a duplicated badge and an impossible date. No. The release is blocked at validation, before anything is written to the
+
+00:00:46.065 --> 00:00:51.879
+site.
+
+00:00:53.250 --> 00:00:59.776
+Scene 4. The data is fixed, but this time the upload is deliberately cut off half way. Still R0001. The hash mismatch stops the pointer, and a correction ticket
+
+00:00:59.776 --> 00:01:06.302
+opens.
+
+00:01:07.717 --> 00:01:14.673
+Scene 5. The release is rerun and publishes. The catalogue's first check only queues it; the next day it accepts it. Yes. Technical verification and business
+
+00:01:14.673 --> 00:01:21.630
+acceptance are recorded separately.
+
+00:01:23.050 --> 00:01:31.468
+Scene 6. Rollback is asked to go to the release that failed verification, then to the previous good one. Rolling back to R0003, which never verified. Rolling
+
+00:01:31.468 --> 00:01:39.886
+back to R0001 works after it is re-checked over HTTP.
+
+00:01:41.250 --> 00:01:51.699
+Scene 7. The history shows every attempt, including the blocked and failed ones. So you can explain what happened and prove nothing bad was ever pointed at.
+
+00:01:53.117 --> 00:01:58.422
+The pointer consumers read: which release, its hash and record count.
+
+00:02:00.250 --> 00:02:03.671
+The correction ticket opened by the cut-off upload.
+
+00:02:06.117 --> 00:02:12.923
+Every release leaves a manifest: stages, hashes, seed, versions, verdict.
+
+00:02:14.717 --> 00:02:20.625
+What this run showed: Bad records blocked with the record named. A damaged upload never became 'latest'. Rollback only to a release proven good. Every attempt
+
+00:02:20.625 --> 00:02:26.533
+on record.

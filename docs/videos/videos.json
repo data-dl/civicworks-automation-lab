@@ -1,0 +1,54 @@
+{
+  "regional": {
+    "seconds": 129,
+    "real_run": 1.6,
+    "tests": "11 tests passing",
+    "mb": 3.8
+  },
+  "ledgerguard": {
+    "seconds": 129,
+    "real_run": 1.1,
+    "tests": "13 tests passing",
+    "mb": 3.8
+  },
+  "safesite": {
+    "seconds": 136,
+    "real_run": 1.8,
+    "tests": "11 tests passing",
+    "mb": 3.3
+  },
+  "masterrecord": {
+    "seconds": 127,
+    "real_run": 1.0,
+    "tests": "16 tests passing",
+    "mb": 3.7
+  },
+  "reconcilehub": {
+    "seconds": 119,
+    "real_run": 0.9,
+    "tests": "15 tests passing",
+    "mb": 3.7
+  },
+  "opspilot": {
+    "seconds": 144,
+    "real_run": 8.1,
+    "tests": "15 tests passing",
+    "mb": 5.5
+  },
+  "overview": {
+    "seconds": 112,
+    "mb": 2.3
+  },
+  "atlas": {
+    "seconds": 189,
+    "real_run": 29.3,
+    "tests": "12 tests passing",
+    "mb": 5.9
+  },
+  "openbadge": {
+    "seconds": 148,
+    "real_run": 4.4,
+    "tests": "13 tests passing",
+    "mb": 3.5
+  }
+}

@@ -1,0 +1,21 @@
+[project]
+name = "civicworks-lab"
+version = "0.1.0"
+description = "A local app for running the CivicWorks pipelines step by step and studying them."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = ["pyyaml>=6", "openpyxl>=3.1", "python-docx>=1.1", "pymupdf>=1.24"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["civicworks_lab*"]
+
+[tool.setuptools.package-data]
+civicworks_lab = ["static/*"]

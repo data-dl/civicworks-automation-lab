@@ -1,0 +1,59 @@
+key: masterrecord
+dir: masterrecord-steward
+title: MasterRecord Steward
+order: 6
+tagline: Master records from three disagreeing sources - justified changes approved, the rest held for a person, nothing else touched.
+skills: [master data management, source precedence, conflict detection, data stewardship workflow, reversible Excel write-back, change history, idempotency]
+story: >-
+  Three offices each keep a list of the same workshops, and they do not agree: the registry says a
+  workshop is 'Master' level, the contracts office still says 'Journeyman', and two inspectors wrote down
+  different zones. There is one official spreadsheet everyone relies on. MasterRecord decides, field by
+  field, what the evidence actually justifies. When one office is the authority, it wins. When nobody is,
+  and they disagree, it does not guess - it asks a person. Then it changes only the cells that were
+  approved, writes down every change on a new tab, and proves nothing else in the spreadsheet moved.
+one_minute: >-
+  MasterRecord loads three feeds as field-level assertions and resolves each field with a precedence
+  matrix in YAML: an authority source wins and disagreements are recorded; without an authority any
+  disagreement is held for a person; a missing required value is held as unknown, never treated as
+  ineligible; out-of-scope entities are excluded with a reason; a postcode fallback only fills blanks.
+  Changes and holds go to a review queue. A decisions file with role and rationale is validated; a dry run
+  shows the cells that would change. Apply makes a verified backup, writes only decided cells plus a new
+  dated Changes tab, re-reads the workbook to prove every other cell is unchanged, swaps the file in
+  atomically, and records each decision by hash so applying twice does nothing.
+inputs:
+  - {name: "feeds/<month>/registry.csv", what: "The guild registry - the authority for certification and participation"}
+  - {name: "feeds/<month>/contract.csv", what: "The contracts office - network affiliation, its view of certification and type"}
+  - {name: "feeds/<month>/site.csv", what: "Site inspections - workshop type, zone, postcode"}
+  - {name: "master/Guild_Workshop_Master.xlsx", what: "The official workbook, with history tabs and reference rows at row 500"}
+steps:
+  - {name: Assert, plain: "Turn every non-empty value from every feed into a separate fact: this source says this field is this value.", technical: "source_assertion; UNIQUE key drops repeated feed rows"}
+  - {name: Resolve, plain: "For each field, apply the rulebook: authority wins, disagreement holds, missing is unknown.", technical: "precedence.yaml: order, authority, required, fallback, allowed"}
+  - {name: Review queue, plain: "List the changes to approve, the holds to decide and the exclusions.", technical: "Review_queue.xlsx and a decisions template with stable proposal ids"}
+  - {name: Validate decisions, plain: "Refuse a decision without a role and reason, an approval of a hold, or a value that is not allowed.", technical: "apply_decisions() validation; decision_hash UNIQUE"}
+  - {name: Write back, plain: "Back up, change only decided cells, add a dated Changes tab, prove nothing else moved, swap in.", technical: "verified backup; cell-by-cell snapshot comparison; os.replace; history_write"}
+outputs:
+  - {name: "review/Review_queue_<month>.xlsx", what: "Holds, changes and exclusions with the evidence from each source"}
+  - {name: "master/Guild_Workshop_Master.xlsx", what: "Updated master with a new 'Changes <date>' tab"}
+  - {name: "master/backups/", what: "A verified copy taken before every write"}
+decisions:
+  - {choice: "Hold when sources disagree and no authority settles it", instead_of: "Picking the most recent or the most common value", why: "Neither recency nor majority makes a value correct. A person with context decides, and their reason is recorded."}
+  - {choice: "Distinguish 'none' from 'unknown'", instead_of: "Treating a blank as 'not certified'", why: "A blank means nobody told us; 'none' means we know they are not certified. Mixing them would de-list people because of missing paperwork."}
+  - {choice: "Prove every other cell is unchanged", instead_of: "Trusting the write", why: "Rewriting a spreadsheet can silently drop a tab or the reference rows at the bottom. A cell-by-cell comparison catches that before the file is replaced."}
+  - {choice: "Record each decision by its hash", instead_of: "Re-applying the decisions file each time", why: "Running apply twice must not double-apply anything."}
+failures:
+  - {what: "Two inspectors give different zones", result: "Held; the review queue shows both values and their dates."}
+  - {what: "A decision approves a hold, or chooses Z9", result: "Refused with the reason; nothing is written."}
+  - {what: "The write would disturb another cell", result: "The temporary file is discarded; the master is left as it was."}
+scenes:
+  1: {explain: "A master workbook with history and reference rows, and three feeds that disagree in planted ways.", predict: "Which source wins for certification level?", answer: "The registry - it is the authority for that field."}
+  2: {explain: "Every field is resolved. Five changes are justified, four cases are held, one workshop is out of scope.", predict: "Why is GJF-0014 held instead of marked 'none'?", answer: "No source gave any certification. Unknown is not the same as not certified, so a person decides."}
+  3: {explain: "The registrar approves the changes and settles two holds with a reason. Two stay open.", predict: "What must every decision line include?", answer: "A resolution, an approver role and a rationale."}
+  4: {explain: "A dry run shows exactly which cells would change.", predict: "Has the master changed yet?", answer: "No - a dry run only reports."}
+  5: {explain: "Apply: verified backup, decided cells written, a new Changes tab, and proof that 309 other cells are unchanged.", predict: "What happens to the old 'Changes 2026-10-26' tab?", answer: "It is untouched; the new changes go on a new dated tab."}
+  6: {explain: "The same decisions are applied again.", predict: "How many cells change?", answer: "None. Each decision is recognised by its hash."}
+  7: {explain: "The next proposal run shows only the two undecided holds.", predict: "Why don't the two settled holds come back?", answer: "Their decisions are recorded and the master now holds the decided value."}
+questions:
+  - {q: "What is a precedence matrix?", simple: "A rulebook saying which source to trust for each field, and what to do when they disagree.", technical: "precedence.yaml: per-field source order, optional authority, required flag, fallback and allowed vocabulary."}
+  - {q: "How do you know the write-back did not break the spreadsheet?", simple: "It compares every cell before and after, except the ones it meant to change.", technical: "Snapshot of all non-empty cells per sheet before and after; any difference outside the touched cells aborts and discards the temp file."}
+try:
+  - {title: "Refuse a bad decision", how: "Add a line choosing Z9 for a zone hold and run apply.", expect: "Refused: 'Z9' is not allowed; the master's hash is unchanged."}

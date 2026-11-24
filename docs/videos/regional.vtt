@@ -1,0 +1,46 @@
+WEBVTT
+
+00:00:00.250 --> 00:00:09.116
+Regional Programs Analytics. Quarterly Excel reports that refuse approval while the data is incomplete, and freeze once approved.
+
+00:00:10.117 --> 00:00:18.235
+Scene 1. Sixteen venues; last quarter's files are clean and this quarter's carry five planted problems. The missing venue and the bad total block. The wrong-
+
+00:00:18.235 --> 00:00:26.353
+quarter file and the duplicate version are handled and noted; the swing only needs commentary.
+
+00:00:27.783 --> 00:00:34.772
+Scene 2. Last quarter passes every check and the program director approves it. The workbooks are frozen read-only. It is approved, and its input hashes are
+
+00:00:34.772 --> 00:00:41.761
+recorded, so any later change to it will be detected.
+
+00:00:43.183 --> 00:00:50.451
+Scene 3. This quarter: drafts are built so people can see the state, but approval is refused. The other sent last quarter's file by mistake; it was rejected as
+
+00:00:50.451 --> 00:00:57.718
+the wrong period, so that venue has no usable file.
+
+00:00:59.183 --> 00:01:11.799
+Scene 4. The late and corrected files arrive. Everything reconciles and the quarter is approved. v2, the newest. v1 is kept as superseded, never counted.
+
+00:01:13.317 --> 00:01:22.513
+Scene 5. Approval is run again. No. ALREADY APPROVED; a real revision needs --new-version and would sit beside v1.
+
+00:01:23.917 --> 00:01:33.933
+Scene 6. The approved workbooks and the draft emails. No. Drafts sit in the outbox for a person; there is no sending code at all.
+
+00:01:35.383 --> 00:01:40.428
+The approved Summary tab: every figure is a formula over the venue rows.
+
+00:01:42.250 --> 00:01:45.373
+Like-for-like comparison with last quarter.
+
+00:01:48.117 --> 00:01:51.619
+A distribution draft - marked NOT SENT.
+
+00:01:53.983 --> 00:02:00.494
+What this run showed: Missing venues and bad totals blocked approval. Wrong-quarter and duplicate files never counted twice. Approved quarters frozen and
+
+00:02:00.494 --> 00:02:07.005
+hashed. Distribution is draft-only.

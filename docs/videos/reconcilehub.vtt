@@ -1,0 +1,40 @@
+WEBVTT
+
+00:00:00.250 --> 00:00:08.313
+ReconcileHub. Monthly access-roster reconciliation that suggests near-matches and never merges two people on a guess.
+
+00:00:09.317 --> 00:00:16.334
+Scene 1. Three monthly inputs with the usual mess planted. The formatting-only id, the role drift and the member who should be removed. The changed id, missing
+
+00:00:16.334 --> 00:00:23.351
+id and look-alike registration need a person.
+
+00:00:24.783 --> 00:00:33.632
+Scene 2. Exact matches are decided; three cases are held with a suggestion and a score. Neither, while their case is held.
+
+00:00:35.117 --> 00:00:43.498
+Scene 3. Approval is tried before review. It blocks and drafts a note to the space admins listing the held cases.
+
+00:00:44.850 --> 00:00:58.305
+Scene 4. A reviewer decides each case. Only now do RENAME ID and FIX ID actions appear. A RENAME ID action from FC-00031 to FC-00931.
+
+00:00:59.917 --> 00:01:09.690
+Scene 5. Approved: snapshot, import workbook and change report. Its SHA-256, recorded with the release.
+
+00:01:11.050 --> 00:01:18.620
+Scene 6. The same inputs and decisions again. No. Identical hash: NOTHING NEW.
+
+00:01:19.983 --> 00:01:30.734
+Scene 7. A late registration after approval: refused, then superseded with a reason. It stays exactly where it was; v2 sits beside it.
+
+00:01:32.117 --> 00:01:36.416
+The import workbook: one row per action, with the reason.
+
+00:01:38.183 --> 00:01:41.664
+The change report, reviewed cases included.
+
+00:01:44.050 --> 00:01:50.739
+What this run showed: Ids normalised, originals kept. Near-matches suggested, never merged. Approval blocked until people decided. Re-runs idempotent; changes
+
+00:01:50.739 --> 00:01:57.428
+need a reason.

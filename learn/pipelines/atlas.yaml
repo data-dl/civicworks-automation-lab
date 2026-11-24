@@ -1,0 +1,73 @@
+key: atlas
+dir: atlas-license-directory
+title: Atlas License Directory
+order: 1
+tagline: A monthly printed directory that is checked, frozen, printed, verified and published - and can be rolled back.
+skills: [ETL from several sources, data-quality rule registry, normalisation, deduplication, PDF generation, approval gates, checkpoint and resume, atomic publish, rollback]
+story: >-
+  Imagine your school prints a booklet every month listing every club, its members and where it meets -
+  one booklet for each building, in three versions: one for the public, one for members, one for staff.
+  If a student left the school, or two students got mixed up because they share a locker number, or a
+  page number in the table of contents is wrong, every copy is wrong, and you cannot take printed booklets
+  back. Atlas is that booklet machine for an invented craft coalition: it collects the lists, checks them,
+  waits for an editor to sign off, prints twelve PDFs, re-checks every page like a careful reader, and
+  only then hands them out - keeping last month's booklets in case this month's turns out to be wrong.
+one_minute: >-
+  Atlas takes four separate source files - members, studios, endorsements and listings - and turns them
+  into twelve PDF directories, one per district per audience. It hashes and counts every file on the way
+  in, cleans values while keeping the originals, and runs a nine-rule registry: six problems block the
+  release, like an expired endorsement or a duplicated member id, and two are only reported. After a named
+  editor approves, the data is frozen into a read-only snapshot and the PDFs are printed from it, each with
+  a linked contents page and index. Then every PDF is opened and checked independently before the set is
+  published in one atomic step. Each stage leaves a checkpoint, so a crash resumes where it stopped, and
+  any earlier month can be restored after its files are re-hashed.
+inputs:
+  - {name: members.csv, what: "Each craftsperson: id, name, phone, state (active, suspended, retired), whether they agreed to public listing"}
+  - {name: studios.csv, what: "Each studio: id, name, district code, venue reference"}
+  - {name: endorsements.csv, what: "Each endorsement: which member, which craft, valid from and to"}
+  - {name: listings.csv, what: "Which member appears at which studio in which edition (public, member, inspector)"}
+steps:
+  - {name: Ingest, plain: "Read each file; record its fingerprint, row count and columns. Stop if the columns are not exactly the expected ones.", technical: "source_file table with SHA-256, row_count, columns"}
+  - {name: Normalise, plain: "Write crafts, phone numbers and districts one standard way, keeping the original next to each cleaned value. Collapse rows sent twice.", technical: "craft alias map to 12 codes; raw_* columns; dedup on (member, studio, edition)"}
+  - {name: Check, plain: "Run every rule in the rulebook and list each problem with the record, the reason and the fix.", technical: "rules.yaml registry; QA summary as HTML, CSV and JSON"}
+  - {name: Freeze, plain: "After an editor approves, copy the checked tables into a read-only snapshot. Printing reads only that copy.", technical: "SQLite backup API to snapshot.sqlite, chmod read-only, hash recorded"}
+  - {name: Render, plain: "Plan every page first so the contents and index know all page numbers, then draw twelve PDFs into a staging folder.", technical: "two-pass layout; PyMuPDF; internal links, bookmarks, metadata"}
+  - {name: Verify, plain: "Open each finished PDF and check it like a careful reader: right page count, index last, every link lands in the right place.", technical: "independent structural checks on the rendered files"}
+  - {name: Publish, plain: "Move the checked folder into place in one step and point readers at it. Write what changed since last month.", technical: "os.replace of the folder; CURRENT.json pointer; CHANGES.md delta"}
+outputs:
+  - {name: "published/<month>/*.pdf", what: "Twelve directories: cover, linked contents, one section per craft, alphabetical index"}
+  - {name: "qa/<month>/qa_summary.html", what: "Every finding with severity, records and fix"}
+  - {name: "published/<month>/CHANGES.md", what: "Listings added and withdrawn since the previous month"}
+  - {name: "snapshots/<month>/snapshot.sqlite", what: "The frozen, read-only data the PDFs were printed from"}
+decisions:
+  - {choice: "Freeze a read-only snapshot before printing", instead_of: "Printing straight from the working tables", why: "If someone edits the data while twelve PDFs print, the editions would disagree with each other. A frozen copy guarantees all twelve come from the same approved data, and its hash proves which data that was."}
+  - {choice: "Plan the layout before drawing anything", instead_of: "Drawing pages and filling in page numbers as you go", why: "The contents page comes first but needs the page numbers of sections that come later. Planning first means every page number is known before page one is drawn - no fixed page assumptions."}
+  - {choice: "Verify the finished PDFs separately from the code that drew them", instead_of: "Trusting the renderer", why: "A bug in the renderer would also be in any check written inside it. Opening the saved file and reading it like a person catches what the renderer got wrong."}
+  - {choice: "Keep raw values beside cleaned ones", instead_of: "Overwriting with the cleaned value", why: "If a cleaning rule is wrong, the original is still there to fix it from, and anyone can see what the source actually said."}
+  - {choice: "Exact duplicates collapse; near-duplicate names go to a report", instead_of: "Merging anything that looks similar", why: "'Quill Oakhollow' and 'Quill Oakhollo' may be a typo or two real people. Merging wrongly attaches one person's listings to another; a person must decide."}
+  - {choice: "A rulebook file (rules.yaml) with severity, reason and fix", instead_of: "Checks scattered through the code", why: "Anyone can read every rule in one place, change a severity without touching code, and see why each rule exists."}
+failures:
+  - {what: "An endorsement expires before the edition goes out", result: "Blocked: the record and the date are named; nothing is frozen or printed."}
+  - {what: "One member id used by two different people", result: "Blocked: listings would attach to the wrong person."}
+  - {what: "A craft spelled a way the map does not know", result: "Blocked: there is no section to print it in."}
+  - {what: "The machine stops after printing, before checking", result: "Nothing is published. Resume skips the finished stages (their hashes still match) and carries on."}
+  - {what: "A printed PDF is damaged or missing its index", result: "Verification fails and the release stops; last month stays current."}
+  - {what: "This month's directory turns out wrong after release", result: "Rollback re-hashes last month's files and points readers back at them; this month is kept, not deleted."}
+scenes:
+  1: {explain: "Four separate files arrive, as they would from four different systems. One example of every problem the rules know about has been planted.", predict: "Of the nine planted problems, how many do you expect to stop the release?", answer: "Six. The missing venue token and the near-duplicate name are advisory: reported, not blocking. The repeated row is simply collapsed."}
+  2: {explain: "Every file is fingerprinted and counted, values are cleaned, and the rulebook runs. Each blocking finding names the record and the reason.", predict: "Will any PDFs be printed in this scene?", answer: "No. Six blocking findings stop the run at the check stage. The QA summary is written instead."}
+  3: {explain: "The editor fixes the sources. This time the checks pass - but freezing needs a named person's approval, and nobody has given it.", predict: "What stops the run now, if the data is clean?", answer: "The approval gate. Clean data is necessary but not sufficient; a person must sign off before printing."}
+  4: {explain: "With approval the snapshot is frozen and twelve PDFs are printed into staging. Then the process is stopped on purpose, before anything is checked or published.", predict: "Can readers see the new directory at this point?", answer: "No. Publishing only happens after verification, and the files are still in staging."}
+  5: {explain: "Resume reads the checkpoints. Stages whose output still has the same fingerprint are skipped; the remaining ones run, each PDF is verified, and the set is published in one step.", predict: "Which stages run again?", answer: "Only verify and publish. Check, freeze and render are proven done by their hashes."}
+  6: {explain: "December's data arrives with three new listings and two withdrawn. It goes through the same line and is published, with a report of what changed.", predict: "What happens to November's directory?", answer: "Nothing. It stays in published/2026-11, untouched; only the pointer moves to December."}
+  7: {explain: "A problem is reported with December. Rollback re-checks every November file against its manifest and points readers back at November.", predict: "Is December deleted?", answer: "No. It is kept; only the pointer changes. And if any November file had been altered, rollback would refuse."}
+questions:
+  - {q: "Why freeze a snapshot instead of printing from the live tables?", simple: "So all twelve booklets come from exactly the same approved data, even if someone edits the data during printing.", technical: "The snapshot is a read-only SQLite copy taken with the backup API after approval; its SHA-256 is recorded, so every PDF is traceable to one immutable input."}
+  - {q: "How do you know the contents page is right?", simple: "The computer opens the finished PDF, follows every contents link and checks the page it lands on starts with that section.", technical: "verify() reads the saved file with PyMuPDF, follows each GOTO link on page 2 and asserts the target page's text begins with the section title; index links are checked the same way against printed names."}
+  - {q: "What happens if the job crashes half way?", simple: "Nothing is published. Next time it starts where it stopped and skips the parts it can prove are done.", technical: "Each stage writes a checkpoint containing a hash of its outputs; resume skips a stage only if the current hash matches, so altered outputs are regenerated."}
+  - {q: "Why not merge names that are 97% alike?", simple: "They might be two real people. A wrong merge gives one person's listings to someone else, so a person decides.", technical: "Fuzzy candidates (SequenceMatcher >= 0.92) are written to review_candidate and raised as an advisory finding; only exact key duplicates collapse."}
+  - {q: "How do editions differ?", simple: "The public edition shows only people who agreed to be public; the inspector edition also shows suspended members and endorsement details.", technical: "EDITIONS defines states and detail level per audience; placement.edition_code plus a rule that blocks public placements without opt-in."}
+try:
+  - {title: "Break a date", how: "In sources/2026-11/endorsements.csv change a valid_to to 2026-11-15, then run the check.", expect: "expired_endorsement blocks the release and names that member."}
+  - {title: "Crash at a different stage", how: "python -m atlas run --workspace w --approve editor --crash-after verify, then run again with --resume.", expect: "Resume skips check, freeze, render and verify; only publish runs."}
+  - {title: "Tamper with a published PDF, then roll back to it", how: "Append a character to a file in published/2026-11, then rollback --to 2026-11.", expect: "Rollback refuses: the file no longer matches its manifest."}

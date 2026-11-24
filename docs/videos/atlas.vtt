@@ -1,0 +1,64 @@
+WEBVTT
+
+00:00:00.250 --> 00:00:10.019
+Atlas License Directory. A monthly printed directory that is checked, frozen, printed, verified and published - and can be rolled back.
+
+00:00:11.050 --> 00:00:20.697
+Scene 1. Four separate files arrive, as they would from four different systems. One example of every problem the rules know about has been planted. Six. The
+
+00:00:20.697 --> 00:00:30.345
+missing venue token and the near-duplicate name are advisory: reported, not blocking. The repeated row is simply collapsed.
+
+00:00:31.850 --> 00:00:40.046
+Scene 2. Every file is fingerprinted and counted, values are cleaned, and the rulebook runs. Each blocking finding names the record and the reason. No. Six
+
+00:00:40.046 --> 00:00:48.242
+blocking findings stop the run at the check stage. The QA summary is written instead.
+
+00:00:49.783 --> 00:00:58.110
+Scene 3. The editor fixes the sources. This time the checks pass - but freezing needs a named person's approval, and nobody has given it. The approval gate.
+
+00:00:58.110 --> 00:01:06.437
+Clean data is necessary but not sufficient; a person must sign off before printing.
+
+00:01:07.917 --> 00:01:16.452
+Scene 4. With approval the snapshot is frozen and twelve PDFs are printed into staging. Then the process is stopped on purpose, before anything is checked or
+
+00:01:16.452 --> 00:01:24.988
+published. No. Publishing only happens after verification, and the files are still in staging.
+
+00:01:26.383 --> 00:01:35.914
+Scene 5. Resume reads the checkpoints. Stages whose output still has the same fingerprint are skipped; the remaining ones run, each PDF is verified, and the set
+
+00:01:35.914 --> 00:01:45.444
+is published in one step. Only verify and publish. Check, freeze and render are proven done by their hashes.
+
+00:01:46.850 --> 00:01:55.893
+Scene 6. December's data arrives with three new listings and two withdrawn. It goes through the same line and is published, with a report of what changed.
+
+00:01:55.893 --> 00:02:04.935
+Nothing. It stays in published/2026-11, untouched; only the pointer moves to December.
+
+00:02:06.383 --> 00:02:15.394
+Scene 7. A problem is reported with December. Rollback re-checks every November file against its manifest and points readers back at November. No. It is kept;
+
+00:02:15.394 --> 00:02:24.404
+only the pointer changes. And if any November file had been altered, rollback would refuse.
+
+00:02:25.783 --> 00:02:31.947
+The contents page: every entry is a link, and every page number was planned before drawing.
+
+00:02:33.717 --> 00:02:38.153
+A craft section: each listing printed from the frozen snapshot.
+
+00:02:39.983 --> 00:02:45.098
+The QA summary: every finding with its rule, records and fix.
+
+00:02:46.917 --> 00:02:51.061
+December compared with November: what was added and withdrawn.
+
+00:02:52.850 --> 00:03:00.157
+What this run showed: Six bad records blocked, each one named. Nothing printed before a named sign-off. A crash mid-print resumed without redoing work. Every
+
+00:03:00.157 --> 00:03:07.464
+PDF verified; rollback re-hashes first.

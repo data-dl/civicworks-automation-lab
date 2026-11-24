@@ -1,0 +1,63 @@
+# Every technical word used in CivicWorks, in plain language. The Lab and the site underline these
+# words and show the meaning on hover. "like" gives an everyday comparison.
+terms:
+  pipeline: {plain: "A series of steps that runs in a fixed order, where each step takes the last step's result and does one job with it.", like: "An assembly line: one station checks, the next packs, the next labels."}
+  automation: {plain: "Having a computer do repeatable steps so a person only handles the decisions that need judgment.", like: "A dishwasher does the washing; you still decide what goes in."}
+  database: {plain: "An organised store of information made of tables, where the computer can enforce rules about what is allowed in.", like: "A filing cabinet that refuses to accept a form with a box left blank."}
+  SQLite: {plain: "A small database that lives in a single file on your computer. No server needed.", like: "A notebook you carry, rather than a library you have to visit."}
+  table: {plain: "Rows and columns of one kind of thing, like a spreadsheet tab. One row per item, one column per fact about it.", like: "A class roster: one row per student, columns for name, grade, homeroom."}
+  row: {plain: "One item in a table, such as one badge or one venue.", like: "One line on the roster."}
+  column: {plain: "One kind of fact recorded for every row, such as an expiry date.", like: "The 'homeroom' column on the roster."}
+  schema: {plain: "The blueprint of a database: which tables exist, which columns they have, and what values are allowed.", like: "The design of a form before anyone fills it in."}
+  primary key: {plain: "The column whose value is different for every row, so each row can be found exactly.", like: "A student ID number: two students may share a name, never an ID."}
+  foreign key: {plain: "A column that must match a primary key in another table, so a record can never point at something that does not exist.", like: "A library card number on a checkout slip must belong to a real card holder."}
+  constraint: {plain: "A rule the database enforces itself, such as 'never blank' or 'must be one of these words'.", like: "A form field that only accepts a date."}
+  migration: {plain: "A numbered script that creates or changes the database's structure, applied once and in order.", like: "Renovation plans numbered 1, 2, 3 so the builder never does step 3 before step 2."}
+  index: {plain: "A lookup structure that lets the database find rows by a column quickly.", like: "The index at the back of a book."}
+  CSV: {plain: "A plain text file of rows, with commas between the columns. Almost every system can export one.", like: "A spreadsheet saved as plain text."}
+  JSON: {plain: "A text format for structured data - lists and labelled values - that programs exchange.", like: "A packing list with headings and items under each heading."}
+  JSON Schema: {plain: "A machine-readable description of what a JSON file must look like, used to check a file automatically.", like: "A checklist an inspector ticks against every package."}
+  ETL: {plain: "Extract, Transform, Load: take data out of sources, clean and reshape it, put it where it will be used.", like: "Collect ingredients, prepare them, plate the meal."}
+  ingest: {plain: "Read data in from a source and record exactly what arrived.", like: "Signing for a delivery and noting how many boxes came."}
+  normalise: {plain: "Turn the many ways the same thing is written into one standard form, keeping the original too.", like: "Writing every phone number the same way in an address book."}
+  synthetic data: {plain: "Data invented by a program for practice or demonstration. None of it describes real people or places.", like: "Crash-test dummies instead of real drivers."}
+  seed: {plain: "A starting number for the random generator. The same seed always produces exactly the same invented data.", like: "A shuffle you can repeat exactly by remembering how you shuffled."}
+  fixture: {plain: "A prepared set of data used by tests, so every test starts from the same known state.", like: "A science experiment that always starts with the same measured ingredients."}
+  hash: {plain: "A short fingerprint computed from a file's exact bytes. Change one character and the fingerprint changes completely.", like: "A wax seal: if it is broken or different, someone opened the letter."}
+  SHA-256: {plain: "The specific fingerprint method used here. It produces 64 letters and digits for any file.", like: "A particular brand of tamper-evident seal."}
+  manifest: {plain: "A list of every file a run used or produced, with each file's hash, plus who, when and what version.", like: "A packing slip that lists every item in the box and its serial number."}
+  QA: {plain: "Quality assurance: checks that the data and the outputs are right before anyone relies on them.", like: "A teacher checking answers before grades go home."}
+  validation: {plain: "Checking that something follows the rules before it is used.", like: "A bouncer checking IDs at the door."}
+  blocking finding: {plain: "A problem serious enough that the pipeline stops and publishes nothing until it is fixed.", like: "A failed brake inspection: the car does not leave the garage."}
+  advisory finding: {plain: "A problem worth reporting that does not stop the run.", like: "A note that the tyres will need replacing soon."}
+  rule registry: {plain: "One file listing every check, how serious it is, why it exists and how to fix it.", like: "A rulebook, rather than rules scattered across people's heads."}
+  dry run: {plain: "A rehearsal that shows exactly what would change, without changing anything.", like: "Reading the recipe aloud before cooking."}
+  approval gate: {plain: "A point where the pipeline waits for a named person to say yes before doing something consequential.", like: "A permission slip a parent must sign."}
+  idempotent: {plain: "Running the same thing twice gives the same result as running it once; nothing is duplicated.", like: "Pressing a lift button twice does not call two lifts."}
+  atomic: {plain: "A change that happens completely or not at all - never half way.", like: "Swapping a whole tray of cups at once rather than one cup at a time while people drink."}
+  staging: {plain: "A holding area where outputs are built and checked before they are released.", like: "The kitchen pass, where plates wait to be checked before going to the table."}
+  publish: {plain: "Make an output available to the people who use it.", like: "Putting the newsletter in the mailboxes."}
+  pointer: {plain: "A small file that says which version is the current one. Changing it switches everyone to another version at once.", like: "A sign saying 'today's menu is on board 3'."}
+  rollback: {plain: "Going back to an earlier version that is known to be good.", like: "Undo, but only to a version you have checked."}
+  checkpoint: {plain: "A saved record that a step finished, with proof of what it produced, so a stopped run can resume.", like: "A save point in a video game."}
+  resume: {plain: "Carry on a stopped run from the first step that is not provably finished.", like: "Opening the book at your bookmark, not at page one."}
+  backup: {plain: "A copy kept so the original can be restored if something goes wrong.", like: "A spare key."}
+  archive: {plain: "Older versions kept, unchanged, for the record and for restoring.", like: "Last year's yearbooks on the shelf."}
+  quarantine: {plain: "A separate folder where a suspicious file is moved so nothing uses it.", like: "Setting aside a dented can instead of putting it on the shelf."}
+  audit trail: {plain: "A record of what happened, when, by whom and why.", like: "A diary nobody is allowed to tear pages out of."}
+  append-only: {plain: "New entries can be added, but existing ones can never be changed or deleted.", like: "Writing in pen in a bound notebook."}
+  precedence: {plain: "Which source wins when two sources give different values.", like: "A referee's call overrides a player's opinion."}
+  hold: {plain: "Pausing a decision for a person instead of letting the computer guess.", like: "'Ask a teacher' rather than flipping a coin."}
+  fuzzy match: {plain: "Two values that are similar but not identical, such as names with one letter different.", like: "'Jon Smith' and 'John Smith' on two forms."}
+  reconciliation: {plain: "Comparing two lists that should agree and explaining every difference.", like: "Checking your bank statement against your own records."}
+  orchestration: {plain: "Coordinating many jobs: their order, what each waits for, and what happens when one fails.", like: "An air-traffic controller for software jobs."}
+  agent: {plain: "Software that decides which actions to take, within the tools and permissions it is given.", like: "An assistant who may only use the tools in their kit and must ask before spending money."}
+  tool registry: {plain: "The complete list of actions an orchestrator or agent is allowed to take, each with its inputs and effect.", like: "The list of jobs a new employee is trained and allowed to do."}
+  CLI: {plain: "Command-line interface: a program you control by typing commands.", like: "Ordering by saying exactly what you want, instead of pointing at a menu."}
+  test: {plain: "A small program that runs the real code on known data and checks the result is exactly what it should be.", like: "A fire drill: you find out if the plan works before you need it."}
+  CI: {plain: "Continuous integration: every time code is pushed, a fresh machine installs it and runs all the tests.", like: "An inspector who re-checks the whole building every time anything is changed."}
+  repository: {plain: "A project folder whose complete history of changes is kept, usually on GitHub.", like: "A document with every earlier draft saved."}
+  workbook: {plain: "An Excel file; it can hold several sheets (tabs).", like: "A binder with several sections."}
+  formula: {plain: "A cell that calculates its value from other cells, so the total always matches its parts.", like: "A calculator built into the page."}
+  outbox: {plain: "A folder of drafted messages that nobody has sent. A person reviews and sends them.", like: "Letters written and stamped but still on your desk."}
+  exception: {plain: "A record that breaks a business rule and needs someone's attention.", like: "A library book that is overdue."}

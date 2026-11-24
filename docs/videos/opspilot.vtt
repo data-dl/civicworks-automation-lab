@@ -1,0 +1,46 @@
+WEBVTT
+
+00:00:00.250 --> 00:00:11.239
+OpsPilot Control Center. One control room over the other pipelines - planned, checkpointed, approved by people, and unable to exceed its contracts.
+
+00:00:12.250 --> 00:00:21.209
+Scene 1. The registry: the complete list of actions, each with typed inputs and an effect. No - that is deliberate.
+
+00:00:22.717 --> 00:00:32.309
+Scene 2. The rules planner orders the steps of publish-cycle by their dependencies. No; it waits for both badge-init and master-propose.
+
+00:00:33.717 --> 00:00:43.058
+Scene 3. Write steps run; both publish steps stop for approval. No. Approval is a separate action a person takes.
+
+00:00:44.583 --> 00:00:55.060
+Scene 4. A person approves each publish step; each approval is a token scoped to one step of one run. No. Tokens are scoped to this run.
+
+00:00:56.383 --> 00:01:05.460
+Scene 5. Resumed, the process stops right after the badge release. interrupted - and the checkpoints so far are saved.
+
+00:01:06.783 --> 00:01:13.127
+Scene 6. Resumed again: six steps are skipped on verified checkpoints; the last one runs. Its output file still has the hash recorded when it finished, so it is
+
+00:01:13.127 --> 00:01:19.471
+provably done.
+
+00:01:20.917 --> 00:01:33.115
+Scene 7. A second goal reaches the roster project, whose own checks refuse to approve. No. It stops, records the project's reason, and states the next action.
+
+00:01:34.583 --> 00:01:46.101
+Scene 8. Six requests OpsPilot refuses, each logged - including erasing the log itself. The database: a trigger aborts any DELETE or UPDATE on it.
+
+00:01:47.583 --> 00:01:54.555
+Scene 9. A read-only status page and a handoff note. No - it is a static snapshot.
+
+00:01:55.850 --> 00:02:02.542
+The status page: runs, steps, output hashes, approvals, the event log.
+
+00:02:04.317 --> 00:02:07.013
+The handoff note for the blocked run.
+
+00:02:10.183 --> 00:02:16.244
+What this run showed: Publish steps waited for a person. Resume skipped only hash-verified work. A project's own block stopped the run. Unsafe requests refused
+
+00:02:16.244 --> 00:02:22.305
+and logged.

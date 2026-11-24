@@ -1,63 +1,72 @@
 # CivicWorks Automation Lab
 
+[![tests](https://github.com/data-dl/civicworks-automation-lab/actions/workflows/tests.yml/badge.svg)](https://github.com/data-dl/civicworks-automation-lab/actions/workflows/tests.yml)
+
 **Reliable automation, from messy inputs to verified outputs.**
 
-Eight independently built demonstration pipelines for a set of invented organisations. Each one takes
-synthetic data with deliberately planted problems, catches them, stops where a person has to decide,
-and leaves evidence of everything it did. Every organisation, person, place and number here is
-fictional; nothing comes from a real system.
+Eight data pipelines for invented organisations. Each one takes data with deliberately planted problems,
+catches them, stops where a person has to decide, and leaves evidence of everything it did.
 
-| project | the fictional problem | outputs | tests | video |
-|---|---|---|---|---|
-| [Atlas License Directory](atlas-license-directory/) | a monthly printed directory, 4 districts x 3 audiences, that must never print a bad listing | 12 verified PDFs with linked contents and index, QA summary, change report | 12 | (coming) |
-| [LedgerGuard Data Quality](ledgerguard-data-quality/) | daily export QA that never mistakes an empty file for success | exception workbook, dashboard, archived and restorable daily sets | 13 | (coming) |
-| [OpenBadge Registry Publisher](openbadge-registry-publisher/) | publish a public badge registry so bad records and bad uploads never reach consumers | versioned JSON, pointer, tickets | 13 | [watch](videos/openbadge.mp4) |
-| [Regional Programs Analytics](regional-programs-analytics/) | quarterly reports for 16 arts venues that refuse approval while data is incomplete | 3 Excel workbooks with formulas and a chart, review pack, draft emails | 11 | [watch](videos/regional.mp4) |
-| [SafeSite Compliance Cycle](safesite-compliance-cycle/) | quarterly safety returns: reminders, checks, escalation, two report variants | 2 Word reports, QA pack, reminder drafts | 11 | [watch](videos/safesite.mp4) |
-| [MasterRecord Steward](masterrecord-steward/) | master records from three feeds that disagree; hold what cannot be justified | review queue, versioned Excel master with a Changes tab | 16 | [watch](videos/masterrecord.mp4) |
-| [ReconcileHub](reconcilehub/) | monthly access-roster reconciliation that never merges two people on a guess | import workbook, hashed roster snapshot, change report | 15 | [watch](videos/reconcilehub.mp4) |
-| [OpsPilot Control Center](opspilot-control-center/) | one control room over the others that cannot exceed its contracts | checkpoints, approvals, append-only log, status page | 15 | [watch](videos/opspilot.mp4) |
+**[Open the presentation site](https://data-dl.github.io/civicworks-automation-lab/)** - a two-minute
+overview video, a narrated walkthrough of every pipeline replayed from a real run, the real outputs
+(PDFs, Excel, Word, JSON), each database's structure, and the reasoning behind every design choice.
 
-106 tests in all. Each video replays a real run of that project's demo command (captured, not typed),
-then shows the files it produced, rendered from the real outputs. Captions (`.vtt`) and a transcript
-with the full captured terminal output (`.md`) sit beside each video.
+| | pipeline | what it does | tests |
+|---|---|---|---|
+| 1 | [Atlas License Directory](atlas-license-directory/) | Four source catalogs into twelve verified PDF directories: rule registry, approval, frozen snapshot, checkpoint resume, atomic publish, rollback | 12 |
+| 2 | [OpenBadge Registry Publisher](openbadge-registry-publisher/) | A public JSON registry that only goes live after it is fetched back over HTTP and matched by hash | 13 |
+| 3 | [Regional Programs Analytics](regional-programs-analytics/) | Quarterly Excel reports with live formulas that refuse approval while data is incomplete | 11 |
+| 4 | [LedgerGuard Data Quality](ledgerguard-data-quality/) | Daily export QA that never mistakes an empty or reshaped file for success; restorable archives | 13 |
+| 5 | [SafeSite Compliance Cycle](safesite-compliance-cycle/) | Deadline reminders, return checks, escalations and two Word reports; nothing sent, no final overwritten | 11 |
+| 6 | [MasterRecord Steward](masterrecord-steward/) | Field-level precedence across three feeds; holds for people; Excel write-back that proves nothing else moved | 16 |
+| 7 | [ReconcileHub](reconcilehub/) | Access-roster reconciliation that suggests near-matches and never merges people on a guess | 15 |
+| 8 | [OpsPilot Control Center](opspilot-control-center/) | Orchestrates the others through a fixed tool registry with approvals, checkpoints and an append-only log | 15 |
 
-## What every project does the same way
+**106 tests.** GitHub Actions installs all eight projects on fresh Ubuntu and Windows machines, lints
+them, runs every test suite and every demo on each push.
 
-- **Synthetic data from a fixed seed,** with an answer to what was planted, so results can be checked.
-- **Checks before outputs.** Blocking findings stop publication and name the record; advisory ones are
-  reported.
-- **People decide what a rule cannot.** Conflicts, near-matches and approvals are held for a named role.
-- **Nothing is overwritten.** Releases, approved reports and snapshots are versioned; a second run with
-  the same inputs changes nothing.
-- **Evidence.** Run manifests with input and output SHA-256, seeds, versions and verdicts.
-- **Drafts, never sends.** Every message is an `.eml` draft to an example.org address; there is no
-  mail-sending code.
-
-## Run everything
+## Try it
 
 ```bash
-python -m venv .venv
-.venv/Scripts/python -m pip install -e ./openbadge-registry-publisher[dev] -e ./regional-programs-analytics[dev] \
-    -e ./safesite-compliance-cycle[dev] -e ./masterrecord-steward[dev] -e ./reconcilehub[dev] \
-    -e ./opspilot-control-center[dev] -e ./atlas-license-directory[dev] \
-    -e ./ledgerguard-data-quality[dev]
-cd openbadge-registry-publisher && python -m openbadge demo     # likewise in each project's folder
+git clone https://github.com/data-dl/civicworks-automation-lab
+cd civicworks-automation-lab
+python -m venv .venv && .venv/Scripts/activate          # macOS/Linux: source .venv/bin/activate
+pip install -e "./atlas-license-directory[dev]" -e "./openbadge-registry-publisher[dev]" \
+    -e "./regional-programs-analytics[dev]" -e "./ledgerguard-data-quality[dev]" \
+    -e "./safesite-compliance-cycle[dev]" -e "./masterrecord-steward[dev]" -e "./reconcilehub[dev]" \
+    -e "./opspilot-control-center[dev]" -e ./lab
+cd atlas-license-directory && python -m atlas demo      # any project: run its demo from its own folder
 ```
 
-Run each demo from its own project folder: at the repository root the `reconcilehub/` folder would be
-picked up instead of the installed `reconcilehub` package.
+**The CivicWorks Lab** (`python -m civicworks_lab`) is a local web app that runs any pipeline one scene at
+a time: before each scene it explains what is about to happen and asks you to predict; after it, it shows
+the output and every file and database table that changed, and opens any spreadsheet, Word report, PDF
+page or database right in the page. It also holds the concepts, a glossary and question flashcards.
 
-Each project's README explains its rules, its demo scenes and its tests. `tools/make_videos.py`
-rebuilds the videos (Windows with Office, for the Excel and Word page renders).
+## What every pipeline does the same way
+
+- **Invented data from a fixed seed,** with known planted problems, so every result can be checked.
+- **Checks before outputs.** Blocking findings stop the run and name the record; advisory ones are reported.
+- **People decide what a rule cannot.** Conflicts, near-matches and publishing wait for a named role.
+- **Nothing good is overwritten.** Versions sit side by side; reruns change nothing; rollback re-hashes first.
+- **Evidence.** Run manifests with SHA-256 fingerprints of inputs and outputs, seeds and verdicts.
+- **Drafts, never sends.** Every message is an `.eml` draft to an example.org address.
+
+## Repository layout
+
+```
+<eight project folders>/   each its own package, migrations, tests, README and data dictionary
+lab/                       the CivicWorks Lab (local app)
+learn/                     plain-language content: per-pipeline guides, glossary, big ideas, interview notes
+docs/                      the presentation site (GitHub Pages), videos and rendered outputs
+tools/                     make_videos.py (narrated videos from real runs), build_site.py, narrate.py
+```
 
 ## How this was built
 
 The author set the problems, the rules, the points where a person must decide, and the acceptance
 tests, and reviewed the results. The code and most of the documentation were written with AI coding
-assistance working to that design. Nothing here is claimed without a test in this repository. This
-is an original fictional demonstration: no real organisation's data, code or systems are in it.
+assistance working to that design. Nothing here is claimed without a test in this repository. This is
+an original fictional demonstration: no real organisation's data, code or systems are in it.
 
-## License
-
-MIT, per project.
+MIT licensed, per project.

@@ -1,0 +1,53 @@
+key: safesite
+dir: safesite-compliance-cycle
+title: SafeSite Compliance Cycle
+order: 5
+tagline: A quarterly safety-return cycle - reminders, checks, escalations and two Word reports - with nothing sent and no final overwritten.
+skills: [workflow and deadline tracking, spreadsheet validation, reminder logic, idempotent scheduling, Word report generation, separation of drafts and finals]
+story: >-
+  Every three months twelve workshops and warehouses each hand in a safety sheet. Someone has to remind
+  people before the deadline, check each sheet makes sense - every serious finding has a photo, the totals
+  match the list - ask for corrections, chase the late ones, and finally write two reports. SafeSite does
+  all of that for an invented consortium. It drafts every reminder but never sends one, it never sends
+  the same reminder twice, and the final reports cannot be produced until every sheet is in.
+one_minute: >-
+  SafeSite plans one assignment per facility with a due date and runs the cycle as of any date. As of
+  each date it takes in the newest return per facility and checks it: exact columns, unique ids, severity
+  S1 to S4, dates inside the quarter, an evidence reference for every S3 and S4, and totals that match the
+  rows. A failed return gets a correction draft with the exact reason. Reminders are drafted 14 and 3 days
+  before the deadline and an escalation after it, each at most once per facility. Two different Word
+  reports are built as drafts; finals need every return accepted and a named approver, are read-only, and
+  are never overwritten.
+inputs:
+  - {name: "submissions/<quarter>/<facility>_v<n>.xlsx", what: "Each coordinator's return: an Observations sheet and a Totals sheet"}
+steps:
+  - {name: Plan, plain: "Give each facility an assignment, a coordinator and a due date; write the reminder calendar.", technical: "assignment table; calendar.csv"}
+  - {name: Take in, plain: "As of a date, use each facility's newest return and remember when it arrived.", technical: "latest _vN; submitted_on; accepted vs accepted-late"}
+  - {name: Check, plain: "Refuse any return that breaks a rule, and say exactly which rule.", technical: "check_return(): columns, ids, severity, dates, evidence, totals"}
+  - {name: Remind, plain: "Draft the reminder the date calls for - never twice.", technical: "T-14, T-3, overdue, correction; UNIQUE(assignment, kind)"}
+  - {name: Report, plain: "Build two different Word reports as drafts; finals only when every return is in and someone approves.", technical: "python-docx; working/, qa/, final/ folders; report_final"}
+outputs:
+  - {name: "final/<Q>/*_FINAL.docx", what: "Workshop & Studio report; Warehouse & Depot report"}
+  - {name: "qa/<Q>/QA_pack_<Q>.md", what: "Every return, its file hash and its reminders"}
+  - {name: "outbox/<Q>/*.eml", what: "Every reminder, correction and escalation, as drafts"}
+decisions:
+  - {choice: "One reminder per facility per kind, enforced by the database", instead_of: "Remembering in code", why: "If the cycle runs twice on the same day - and schedulers do that - nobody gets two copies."}
+  - {choice: "Draft, never send", instead_of: "Sending email", why: "A wrong mass email cannot be taken back. A person reviews the drafts; the code has no way to send."}
+  - {choice: "Separate working, QA and final folders", instead_of: "One output folder", why: "Nobody can mistake a draft for the approved report, and a final can never be overwritten by a later draft."}
+  - {choice: "Accept late returns but mark them late", instead_of: "Refusing them", why: "The data is still needed; the record should show it was late."}
+failures:
+  - {what: "A serious finding without a photo reference", result: "Correction requested: 'row 2: F03-O01 is S3 but has no evidence reference'."}
+  - {what: "Totals sheet disagrees with the rows", result: "Correction requested, naming both numbers."}
+  - {what: "Two facilities miss the deadline", result: "Escalations drafted with the safety lead copied; finals refused."}
+scenes:
+  1: {explain: "Twelve facilities, four coordinators, a due date and a reminder calendar.", predict: "When will the first reminders go out?", answer: "On 1 December, fourteen days before the 15 December deadline."}
+  2: {explain: "Six returns arrive two weeks out. Three break a rule; each gets a correction draft. The rest get a T-14 reminder.", predict: "Which three rules did the bad returns break?", answer: "A serious finding with no evidence, totals that do not match, and a severity that does not exist."}
+  3: {explain: "Three days out: the corrections come back and pass. Running the same day again drafts nothing new.", predict: "Why does the second run draft nothing?", answer: "Each reminder is recorded once per facility and kind, so the same reminder is never drafted twice."}
+  4: {explain: "Past the deadline, two facilities are missing. Escalations go to the coordinator with the safety lead copied, and finals are refused.", predict: "Are any reports produced?", answer: "Yes - drafts, marked incomplete. Finals wait."}
+  5: {explain: "The late returns arrive and are accepted as late. The safety lead approves; a second approval overwrites nothing.", predict: "Can the approved finals be regenerated?", answer: "No. They are read-only and a second approval reports ALREADY FINAL."}
+  6: {explain: "The four folders kept apart: working, QA, final and outbox.", predict: "Has any email been sent?", answer: "No. Fourteen drafts wait in the outbox."}
+questions:
+  - {q: "How do you avoid duplicate reminders?", simple: "The system writes down every reminder it drafted and checks that list first.", technical: "UNIQUE(assignment_id, kind) in SQLite; the cycle checks before drafting."}
+  - {q: "Why not send the emails automatically?", simple: "Because a wrong email cannot be taken back; a person checks first.", technical: "Outbox of .eml drafts; no SMTP code; example.org addresses enforced."}
+try:
+  - {title: "Run a day twice", how: "safesite cycle --as-of 2026-12-12 twice", expect: "The second run drafts nothing."}

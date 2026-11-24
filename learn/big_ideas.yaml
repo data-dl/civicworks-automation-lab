@@ -1,0 +1,72 @@
+# The ideas every CivicWorks pipeline is built on. If you understand these nine, you understand the
+# architecture of all eight projects; each project is these ideas applied to one problem.
+ideas:
+  - id: layers
+    title: Every pipeline is a line of stations
+    plain: >-
+      Data goes in one end, passes stations in a fixed order - read it, clean it, check it, decide, build
+      the output, check the output, release it, keep a copy - and comes out the other end. Each station does
+      one job. When something goes wrong you know exactly which station caught it.
+    why: Small steps are easy to test one at a time, and a failure points at a single place.
+    where: Every project. Atlas has the clearest line - check, freeze, render, verify, publish.
+  - id: synthetic
+    title: All the data is invented, on purpose, and repeatable
+    plain: >-
+      A generator program makes up every organisation, person and number from a starting number called a
+      seed. Same seed, same data, byte for byte. It also plants specific mistakes so the checks have
+      something real to catch, and the tests know exactly what should be caught.
+    why: Nothing private can leak, anyone can rerun it, and every test result can be checked against a known answer.
+    where: Each project's synth.py or sources.py; the "same seed, same bytes" test in every project.
+  - id: check_before_use
+    title: Check before anything is used, and name the problem
+    plain: >-
+      Before data becomes an output, rules run over it. A blocking problem stops the run and says which
+      record and why. An advisory problem is reported but does not stop it. Nothing is silently fixed or
+      silently skipped.
+    why: A bad record in a published file spreads to everyone who uses it; catching it early is cheap.
+    where: Atlas's rule registry, OpenBadge's three layers of checks, Regional's findings, SafeSite's return checks.
+  - id: people_decide
+    title: The computer never guesses about what needs judgment
+    plain: >-
+      When two sources disagree and no rule settles it, or two names are almost the same, the pipeline
+      holds the case and asks a named person. Their decision, with their role and reason, is recorded.
+      Anything that is published also waits for a named approval.
+    why: An automatic guess is wrong some of the time, and a wrong merge or publish is hard to undo.
+    where: MasterRecord holds, ReconcileHub cases, approvals in Atlas, Regional, SafeSite and OpsPilot.
+  - id: never_overwrite
+    title: Nothing good is ever overwritten
+    plain: >-
+      Releases, approved reports and snapshots are versioned. A new version is written next to the old
+      one, never on top of it. A second approval of the same thing changes nothing; a real revision becomes
+      version 2 with a reason.
+    why: If the new version turns out wrong, the old one is still there, untouched.
+    where: OpenBadge releases, Atlas periods, Regional v1/v2, SafeSite finals, ReconcileHub supersede.
+  - id: idempotent
+    title: Running it twice is safe
+    plain: >-
+      Every pipeline can be run again on the same inputs without duplicating anything: the same reminder is
+      not drafted twice, the same decision is not applied twice, the same roster is not approved twice.
+    why: Real jobs get rerun - after a crash, by a scheduler, by someone pressing the button twice.
+    where: SafeSite reminders, MasterRecord decision hashes, ReconcileHub NOTHING NEW, OpsPilot checkpoints.
+  - id: fingerprints
+    title: Fingerprints prove what happened
+    plain: >-
+      Every important file gets a SHA-256 fingerprint. Manifests list inputs and outputs with their
+      fingerprints. A restore or rollback first re-checks the fingerprints; if a file has changed, it refuses.
+    why: You can prove which data produced which output, and you cannot restore something that was tampered with.
+    where: Run manifests in every project; LedgerGuard and Atlas restores; OpenBadge's pointer.
+  - id: atomic
+    title: Release all at once, or not at all
+    plain: >-
+      Outputs are built and checked in a staging area first. Releasing them is one quick swap - a rename or
+      a pointer change - so readers see the whole new version or the whole old one, never half of each.
+    why: A crash half way through copying files would otherwise leave a mixture nobody can trust.
+    where: Atlas publish, OpenBadge pointer, LedgerGuard daily sets, ReconcileHub snapshots.
+  - id: evidence
+    title: Every claim has a test, and every run leaves evidence
+    plain: >-
+      Each behaviour described in a README is checked by an automated test, and GitHub runs all the tests
+      on fresh Linux and Windows machines after every change. Every run writes a manifest and readable
+      reports.
+    why: 'Saying "it works on my machine" is not proof; a test anyone can rerun is.'
+    where: 106 tests across eight projects; the CI badge on the repository.

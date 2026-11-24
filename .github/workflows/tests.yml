@@ -25,14 +25,15 @@ jobs:
         run: |
           args=""
           for pair in $PROJECTS; do args="$args -e ./${pair%%:*}[dev]"; done
-          python -m pip install $args
+          python -m pip install $args -e "./lab[dev]"
       - name: lint
         shell: bash
-        run: ruff check $(for pair in $PROJECTS; do echo "${pair%%:*}"; done) tools
+        run: ruff check $(for pair in $PROJECTS; do echo "${pair%%:*}"; done) tools lab
       - name: tests, project by project
         shell: bash
         run: |
           for pair in $PROJECTS; do (cd "${pair%%:*}" && python -m pytest -q) || exit 1; done
+          (cd lab && python -m pytest -q) || exit 1
       - name: every demo runs (from its own folder; the repo root has a folder named like one package)
         shell: bash
         run: |

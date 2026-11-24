@@ -1,0 +1,62 @@
+key: opspilot
+dir: opspilot-control-center
+title: OpsPilot Control Center
+order: 8
+tagline: One control room over the other pipelines - planned, checkpointed, approved by people, and unable to exceed its contracts.
+skills: [workflow orchestration, dependency graphs, checkpoint and resume, human-in-the-loop approvals, least-privilege tool design, append-only audit logs, safe AI-agent design]
+story: >-
+  Picture an air-traffic controller for the other seven programs. It knows which job has to finish
+  before which, it waits for a person's signature before anything is published, it remembers exactly
+  how far it got if the power goes out, and it simply has no button for anything dangerous. If someone -
+  or an AI assistant - asks it to "run this command", it says no, because that is not on its list of
+  allowed jobs, and it writes the refusal in a logbook nobody can erase.
+one_minute: >-
+  OpsPilot drives the CivicWorks pipelines through a registry of typed tool contracts - each with inputs,
+  an effect class of read, write or publish, and the output files that prove it ran. A rules planner turns
+  a goal into steps ordered by their dependencies; any planner, including an optional language-model one
+  that is off by default, is validated against the registry. Steps run as argument lists, never shell
+  strings, with every input type-checked and confined to its workspace. Publish steps wait for a scoped
+  approval token issued by a person. Each finished step stores a hash of its outputs, so a crashed run
+  resumes and skips only work that is provably done. A project's own refusal stops the run with a next
+  action, every event goes into an append-only log enforced by database triggers, and a static status
+  page shows it all.
+inputs:
+  - {name: tools.yaml, what: "The registry: every allowed action and three goals that combine them"}
+steps:
+  - {name: Plan, plain: "Turn a goal into steps ordered by what each one waits for.", technical: "RulesPlanner; validate_plan (registered tools, known dependencies, no cycles)"}
+  - {name: Check inputs, plain: "Every input must be the right kind and stay inside its folder.", technical: "check_inputs(): workspace confinement, quarter and role patterns, no undeclared inputs"}
+  - {name: Approve, plain: "A publish step runs only after a person approves that step of that run.", technical: "authorization table; one token per (run, step)"}
+  - {name: Run and checkpoint, plain: "Run each step and save a fingerprint of what it produced.", technical: "subprocess argv list, no shell, no window; checkpoint.artifact_hash"}
+  - {name: Resume, plain: "After a crash, skip steps whose outputs still match; redo any that changed.", technical: "hash comparison per step; checkpoint-stale event"}
+  - {name: Log and report, plain: "Write every event into a log that cannot be edited, and a read-only status page.", technical: "SQLite triggers abort UPDATE and DELETE on event_log; status.html"}
+outputs:
+  - {name: status.html, what: "Runs, steps, output hashes, approvals and the event log"}
+  - {name: "logs/<run>/HANDOFF.md", what: "What happened and the next action, for whoever picks the run up"}
+decisions:
+  - {choice: "A registry of allowed tools, with no general command runner", instead_of: "Letting the orchestrator run any command", why: "If the only buttons are safe ones, no instruction - from a person or an AI - can make it do something dangerous."}
+  - {choice: "Language-model planning off by default and validated", instead_of: "Trusting a model's plan", why: "A model may propose anything; validation against the registry, approvals and refusals apply to every plan regardless of who wrote it."}
+  - {choice: "Checkpoint by output hash", instead_of: "A 'done' flag", why: "A flag says a step finished once; a hash proves its output is still intact now."}
+  - {choice: "Approval tokens scoped to one step of one run", instead_of: "A global 'approved' switch", why: "Approving one release must not silently approve the next."}
+  - {choice: "History protected by the database itself", instead_of: "Trusting the code not to edit it", why: "Triggers refuse UPDATE and DELETE, so even buggy or malicious code cannot rewrite the record."}
+failures:
+  - {what: "A publish step without approval", result: "awaiting-approval; the run stops there and says who must approve."}
+  - {what: "The process stops half way", result: "interrupted; resume skips verified steps and runs the rest."}
+  - {what: "A request to run an unregistered command, or a path outside the workspaces", result: "Refused and logged."}
+  - {what: "A project's own checks refuse", result: "The run is blocked with the project's reason and a next action."}
+scenes:
+  1: {explain: "The registry: the complete list of actions, each with typed inputs and an effect.", predict: "Is there a tool that runs any command you give it?", answer: "No - that is deliberate."}
+  2: {explain: "The rules planner orders the steps of publish-cycle by their dependencies.", predict: "Can badge-release run before master-propose?", answer: "No; it waits for both badge-init and master-propose."}
+  3: {explain: "Write steps run; both publish steps stop for approval.", predict: "Can OpsPilot approve them itself?", answer: "No. Approval is a separate action a person takes."}
+  4: {explain: "A person approves each publish step; each approval is a token scoped to one step of one run.", predict: "Does this approval carry over to next month's run?", answer: "No. Tokens are scoped to this run."}
+  5: {explain: "Resumed, the process stops right after the badge release.", predict: "What state is the run in?", answer: "interrupted - and the checkpoints so far are saved."}
+  6: {explain: "Resumed again: six steps are skipped on verified checkpoints; the last one runs.", predict: "Why is the badge release not run a second time?", answer: "Its output file still has the hash recorded when it finished, so it is provably done."}
+  7: {explain: "A second goal reaches the roster project, whose own checks refuse to approve.", predict: "Does OpsPilot override the project?", answer: "No. It stops, records the project's reason, and states the next action."}
+  8: {explain: "Six requests OpsPilot refuses, each logged - including erasing the log itself.", predict: "Who refuses the attempt to erase the event log?", answer: "The database: a trigger aborts any DELETE or UPDATE on it."}
+  9: {explain: "A read-only status page and a handoff note.", predict: "Can the status page change anything?", answer: "No - it is a static snapshot."}
+questions:
+  - {q: "How would you make an AI agent safe to run pipelines?", simple: "Give it only safe buttons, make it ask a person before publishing, and record everything it does in a log it cannot erase.", technical: "Typed tool registry with effect classes, input validation and workspace confinement, scoped human approval tokens for publish effects, append-only audit log enforced by triggers, and the model planner validated like any other."}
+  - {q: "What is the difference between a checkpoint and a done flag?", simple: "A flag says it finished; a checkpoint proves the result is still there and unchanged.", technical: "SHA-256 over declared outputs stored per step; resume re-hashes and reruns on mismatch."}
+  - {q: "What happens if a pipeline it runs fails its own checks?", simple: "OpsPilot stops and says what to fix; it never overrules the project.", technical: "Exit code 1 is classified as blocked by the project's QA; run state blocked; next_action and HANDOFF.md written."}
+try:
+  - {title: "Approve a step that does not publish", how: "opspilot approve --run <run> --step master-init --role anyone", expect: "Refused: master-init does not publish."}
+  - {title: "Run the directory goal", how: "opspilot run directory-cycle, then approve atlas-publish and resume.", expect: "LedgerGuard runs first, Atlas publishes after approval."}
