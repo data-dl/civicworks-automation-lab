@@ -39,8 +39,11 @@ python -m venv .venv
 .venv/Scripts/python -m pip install -e ./openbadge-registry-publisher[dev] -e ./regional-programs-analytics[dev] \
     -e ./safesite-compliance-cycle[dev] -e ./masterrecord-steward[dev] -e ./reconcilehub[dev] \
     -e ./opspilot-control-center[dev]
-python -m openbadge demo        # or regional, safesite, masterrecord, reconcilehub, opspilot
+cd openbadge-registry-publisher && python -m openbadge demo     # likewise in each project's folder
 ```
+
+Run each demo from its own project folder: at the repository root the `reconcilehub/` folder would be
+picked up instead of the installed `reconcilehub` package.
 
 Each project's README explains its rules, its demo scenes and its tests. `tools/make_videos.py`
 rebuilds the videos (Windows with Office, for the Excel and Word page renders).

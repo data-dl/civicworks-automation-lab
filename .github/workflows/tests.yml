@@ -28,9 +28,11 @@ jobs:
                    masterrecord-steward reconcilehub opspilot-control-center; do
             (cd "$p" && python -m pytest -q) || exit 1
           done
-      - name: every demo runs
+      - name: every demo runs (from its own folder; the repo root has a folder named like one package)
         shell: bash
         run: |
-          for m in openbadge regional safesite masterrecord reconcilehub opspilot; do
-            python -m "$m" demo --out "build/ci-$m" > /dev/null || exit 1
+          for pair in openbadge-registry-publisher:openbadge regional-programs-analytics:regional \
+                      safesite-compliance-cycle:safesite masterrecord-steward:masterrecord \
+                      reconcilehub:reconcilehub opspilot-control-center:opspilot; do
+            (cd "${pair%%:*}" && python -m "${pair##*:}" demo --out build/ci-demo > /dev/null) || exit 1
           done
