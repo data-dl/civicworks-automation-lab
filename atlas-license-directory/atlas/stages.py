@@ -21,7 +21,7 @@ from pathlib import Path
 import yaml
 
 from .db import connect, migrate
-from .runkit import sha256_file, utc_now, write_json
+from .runkit import guard, sha256_file, utc_now, write_json
 from .synth import CRAFTS, DISTRICTS, SPELLINGS
 
 RULES_FILE = Path(__file__).with_name("rules.yaml")
@@ -237,7 +237,7 @@ def freeze(ws: Workspace, period: str, approve_as: str | None) -> tuple[bool, st
     blocking = json.loads(summary.read_text(encoding="utf-8"))["blocking"]
     if blocking:
         return False, f"{blocking} blocking finding(s) - nothing can be frozen"
-    if not approve_as:
+    if not approve_as and guard("sign-off"):
         return False, "checks pass; a directory editor must approve before the snapshot is frozen (--approve ROLE)"
     target = ws.snapshots / period / "snapshot.sqlite"
     if target.exists():
@@ -250,7 +250,8 @@ def freeze(ws: Workspace, period: str, approve_as: str | None) -> tuple[bool, st
     target.chmod(stat.S_IREAD)
     digest = sha256_file(target)
     src.execute("INSERT OR REPLACE INTO directory_release (release_id, period, stage, snapshot_hash, approved_by, "
-                "updated_at) VALUES (?, ?, 'frozen', ?, ?, ?)", (period, period, digest, approve_as, utc_now()))
+                "updated_at) VALUES (?, ?, 'frozen', ?, ?, ?)",
+                (period, period, digest, approve_as or "nobody", utc_now()))
     src.commit()
     src.close()
     return True, f"snapshot frozen read-only, sha256 {digest[:12]}, approved by {approve_as}"

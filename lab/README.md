@@ -1,28 +1,29 @@
 # CivicWorks Lab
 
-A local app for running the eight CivicWorks pipelines one scene at a time and learning how they work.
+A local app for understanding the eight CivicWorks pipelines by using them - and breaking them.
 
 ```bash
 python start.py             # from the repository root: sets everything up and opens the Lab
 python -m civicworks_lab    # or, once installed: opens http://127.0.0.1:8870
 ```
 
-- **Guided run** starts a pipeline's real demo in step mode. Before each scene it explains what is about
-  to happen and asks you to predict the result; after the scene it shows the output, the exact rows and
-  cells that changed (`rowdiff.py`), and every record the output names traced back to its row. While the
-  run is paused you can **change the data**: edit any input CSV or run SQL against the run's database,
-  then run the next scene and see how the pipeline reacts.
-- **Experiments** (`experiments.py`, defined in `learn/experiments.yaml`) apply one preset change to the real
-  inputs after scene 1 and run a normal run beside it; the page shows only the lines of output that differ.
-  Every edit must hit something - an edit that matches nothing is an error, never a silent pass.
-- **Query the data** is a SQL console on each pipeline's database with example questions that each teach
-  one idea. Writes are allowed: it is a sandbox copy that belongs to that run.
-- Click any file to open it in the page: spreadsheets (with their formulas), Word reports, PDF pages with
-  bookmarks, JSON, email drafts, and SQLite databases drawn as a data model you can browse.
-- **Big ideas, glossary, interview prep and flashcards** come from the plain-language files in `learn/`,
-  the same source the documentation site uses.
-- **Quick run** runs every demo start to finish and lists what each produced.
+Each pipeline has five tabs:
 
-The Lab binds to 127.0.0.1 only, can start only the registered demo commands, and reads and writes files
-only inside its own run folders under `build/lab-runs/`. Tables that store file paths are shown relative
-to the run, so no machine's folder names appear on screen.
+- **The flow** - the pipeline's steps in a row. Click a step for what it does in plain words, the real code it
+  runs (read from the repository, `flows.py` + `learn/flows.yaml`) and the database rule it relies on, explained
+  part by part. One step per pipeline has a **safeguard switch**: the Lab runs the real pipeline with that
+  protection off (`CIVICWORKS_SAFEGUARD_OFF`, see `runkit.guard`) beside a normal run, and shows only what changed.
+- **Guided run** - the real demo, paused before each scene: predict, run, then see the output, the exact rows
+  and cells that changed (`rowdiff.py`) and each named record traced to its row. While paused you can change the
+  data yourself - edit an input CSV or run SQL - and watch the next scene react.
+- **Try it** - one-click experiments that change the input data (`experiments.py`, `learn/experiments.yaml`).
+- **Query the data** - a SQL console on the run's database, with example questions that each teach one idea.
+- **Go deeper** - design decisions, failure handling, inputs and outputs, rules, questions, video.
+
+**Public or private.** Everything above is public: a recorded version is on the website and the code is on
+GitHub. **My prep** is private: interview notes, questions by role and a worksheet for mapping each pipeline to
+your own work. It is read from a `civicworks-prep` folder next to the repository (or `CIVICWORKS_PREP`), and what
+you type is saved there - never in the repository.
+
+The Lab binds to 127.0.0.1 only, can start only the registered demo commands, reads and writes files only inside
+its own run folders under `build/lab-runs/`, and shows paths relative to the run or the repository.

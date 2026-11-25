@@ -20,7 +20,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from .db import connect, migrate
-from .runkit import Outbox, sha256_file
+from .runkit import Outbox, guard, sha256_file
 
 SEVERITIES = ("S1", "S2", "S3", "S4")
 ACTIONS = ("open", "in-progress", "closed")
@@ -157,7 +157,7 @@ def run_cycle(ws: Workspace, quarter: str, as_of: date, arrivals: dict[str, date
             report.received.append(latest.name)
             check = check_return(latest, start, end)
             con.execute("DELETE FROM observation WHERE assignment_id = ?", (aid,))
-            if check.ok:
+            if check.ok or not guard("return-checks"):
                 state = "accepted" if arrived <= due else "accepted-late"
                 con.executemany("INSERT INTO observation VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                                 [(r["Observation ID"], aid, str(r["Date"]), r["Area"], r["Severity"],

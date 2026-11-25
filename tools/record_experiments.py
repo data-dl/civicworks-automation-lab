@@ -27,12 +27,12 @@ from civicworks_lab import server  # noqa: E402
 OUT = ROOT / "docs" / "data"
 
 
-def wait(*runs, timeout=300) -> None:
+def wait(*runs, timeout=300, may_fail=()) -> None:
     end = time.time() + timeout
     while any(r.status != "done" for r in runs) and time.time() < end:
         time.sleep(0.2)
     for r in runs:
-        if r.status != "done" or r.exit_code != 0:
+        if r.status != "done" or (r.exit_code != 0 and r not in may_fail):
             raise RuntimeError(f"{r.id} did not finish cleanly (status {r.status}, exit {r.exit_code})")
 
 
@@ -53,19 +53,26 @@ def record(key: str) -> None:
     spec = server.CONTENT["experiments"].get(key, {})
     results = []
     server.BASELINES.pop(key, None)
-    for exp in spec.get("experiments", []):
+    for exp in spec.get("experiments", []) + spec.get("safeguards", []):
         ids = server.start_experiment(key, exp["id"])
         normal, test = server.ACTIVE[ids["normal"]], server.ACTIVE[ids["experiment"]]
-        wait(normal, test)
+        wait(normal, test, may_fail=(test,) if exp.get("safeguard") else ())  # switching a safeguard off may crash it
         diff = server.compare_runs(normal, test)
         applied = test.applied or {}
         if not applied.get("error") and not any(d["kind"] in ("added", "removed") for d in diff):
             raise RuntimeError(f"{key}/{exp['id']} changed nothing - fix the experiment")
-        results.append({k: exp[k] for k in ("id", "title", "plain", "predict", "look_for", "edits")}
-                       | {"refused": applied.get("error"), "rows": applied.get("rows", [])[:4], "diff": diff[:80]})
+        leaked = [d["text"] for d in diff if any(m in d["text"] for m in (str(Path.home()), Path.home().as_posix()))]
+        if leaked:
+            raise RuntimeError(f"{key}/{exp['id']} output still shows a path from this machine: {leaked[0][:80]}")
+        record = {k: exp.get(k) for k in ("id", "title", "plain", "predict", "look_for", "edits", "safeguard", "protects",
+                                          "defend", "step")}
+        results.append(record | {"refused": applied.get("error"), "rows": applied.get("rows", [])[:4], "diff": diff[:90],
+                                 "exit": test.exit_code})
         print(f"  {key}/{exp['id']}: {'refused' if applied.get('error') else f'{len(diff)} lines differ'}")
     (OUT / "experiments").mkdir(parents=True, exist_ok=True)
-    (OUT / "experiments" / f"{key}.json").write_text(json.dumps({"note": spec.get("note"), "experiments": results},
+    (OUT / "experiments" / f"{key}.json").write_text(json.dumps({"note": spec.get("note"),
+                                                                 "experiments": [r for r in results if not r["safeguard"]],
+                                                                 "safeguards": [r for r in results if r["safeguard"]]},
                                                                 ensure_ascii=False), encoding="utf-8")
     # the final database of a normal run, for the in-browser SQL console
     base = server.BASELINES.get(key) or server.start_run(key, auto=True)

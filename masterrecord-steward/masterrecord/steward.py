@@ -23,6 +23,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 
 from .db import connect, migrate
+from .runkit import guard
 from .synth import FIELDS, MASTER_COLUMNS
 
 PRECEDENCE = Path(__file__).with_name("precedence.yaml")
@@ -109,6 +110,11 @@ def resolve(values: dict[str, set[str]], spec: dict, current: str, fallback: str
             why += "; " + ", ".join(f"{s} says {'/'.join(sorted(v))}" for s, v in others.items()) + " - not used"
     elif present:
         distinct = set().union(*present.values())
+        if len(distinct) > 1 and not guard("hold-for-a-person"):
+            first = order[0] if order[0] in present else next(iter(present))
+            value = sorted(present[first])[0]
+            return (("same" if value == current else "change"), value,
+                    f"sources disagree; {first} is first in the order, so it wins without asking anyone")
         if len(distinct) > 1:
             return "hold", "", "sources disagree: " + ", ".join(f"{s} says {'/'.join(sorted(v))}"
                                                                 for s, v in present.items())

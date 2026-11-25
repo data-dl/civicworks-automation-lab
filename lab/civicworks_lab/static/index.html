@@ -5,16 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CivicWorks Lab</title>
 <link rel="stylesheet" href="/static/lab.css">
+<link rel="stylesheet" href="/static/flow.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="#/"><span class="mark">CW</span><span><b>CivicWorks Lab</b><small>run it, watch it, understand it</small></span></a>
+  <a class="brand" href="#/"><span class="mark">CW</span><span><b>CivicWorks Lab</b><small>run it, break it, understand it</small></span></a>
   <nav>
     <a href="#/" data-nav="home">Pipelines</a>
-    <a href="#/ideas" data-nav="ideas">Big ideas</a>
-    <a href="#/glossary" data-nav="glossary">Glossary</a>
-    <a href="#/interview" data-nav="interview">Interview prep</a>
-    <a href="#/cards" data-nav="cards">Flashcards</a>
+    <a href="#/ideas" data-nav="ideas">Concepts</a>
+    <a href="#/prep" data-nav="prep" class="private-link">My prep</a>
     <a href="#/quick" data-nav="quick">Quick run</a>
   </nav>
   <button class="ghost small" id="quit" title="Stop the Lab server">Quit Lab</button>
@@ -27,6 +26,7 @@
   </div>
 </div>
 <div id="tip" class="tip" hidden></div>
+<script src="/static/flow.js"></script>
 <script src="/static/lab.js"></script>
 </body>
 </html>

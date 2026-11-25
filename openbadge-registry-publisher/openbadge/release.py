@@ -17,7 +17,16 @@ from pathlib import Path
 from . import __version__
 from .db import connect, migrate
 from .registry import Finding, blocking, build_payload, canonical_bytes, validate
-from .runkit import Manifest, atomic_write_bytes, atomic_write_text, sha256_bytes, sha256_file, utc_now, write_json
+from .runkit import (
+    Manifest,
+    atomic_write_bytes,
+    atomic_write_text,
+    guard,
+    sha256_bytes,
+    sha256_file,
+    utc_now,
+    write_json,
+)
 from .site import fetch, read_pointer, serve
 
 PROJECT = "openbadge-registry-publisher"
@@ -158,7 +167,7 @@ def release(ws: Workspace, as_of: date, *, apply: bool = True, inject: str | Non
         if served["record_count"] != result.record_count or any(
                 served["badges"][i] != payload["badges"][i] for i in sample):
             problems.append("served records differ from the snapshot")
-    if problems:
+    if problems and guard("verify-before-go-live"):
         manifest.end(stage, "fail", problems=problems)
         ticket = _ticket(ws, release_id, "verify-failed", "; ".join(problems),
                          "Re-run the release. The pointer was not moved, so consumers still see the previous "

@@ -41,9 +41,13 @@ document.addEventListener("mouseover", e => {
 
 // --- routing ---------------------------------------------------------------------------------------------
 const routes = {
-  "": home, ideas, glossary, interview, cards, quick,
-  p: (key, tab) => pipeline(key, tab || "overview"),
+  "": home, ideas: concepts, glossary: concepts, prep, cards, quick,
+  p: (key, tab) => pipeline(key, tab || "flow"),
 };
+// Which parts are public (a recorded version is on the website, the code is on GitHub) and which are yours alone.
+const PUBLIC = `<span class="vis pub" title="A recorded version is on the public website; here it runs live on this computer">Public - also on the website</span>`;
+const PRIVATE = `<span class="vis priv" title="Lives outside the repository; never published">Private - only on this computer</span>`;
+const layer = (title, hint, body, open = false) => `<details class="layer" ${open ? "open" : ""}><summary><b>${esc(title)}</b><span>${esc(hint)}</span></summary><div class="layer-body">${body}</div></details>`;
 function route() {
   const [, head = "", ...rest] = location.hash.replace(/^#\/?/, "/").split("/");
   document.querySelectorAll("[data-nav]").forEach(a => a.classList.toggle("on", a.dataset.nav === (head || "home")));
@@ -62,75 +66,79 @@ function home() {
   const done = store.get("done", {});
   app.innerHTML = `
   <section class="hero">
-    <div class="eyebrow">Your eight pipelines</div>
-    <h1>Run each one, watch what it does, and learn why it is built that way.</h1>
-    <p class="lede">Every pipeline here runs for real on invented data. Pick one and press <b>Guided run</b>: it stops before each scene,
-    asks what you think will happen, runs it, then shows you exactly which files, rows and cells changed. Hover any underlined word for a plain meaning.</p>
+    <div class="eyebrow">Your eight pipelines ${PUBLIC}</div>
+    <h1>Run each one, break it on purpose, and learn why it is built that way.</h1>
+    <p class="lede">Pick a pipeline. Its <b>flow</b> shows every step in plain words, with the real code and the database rule behind it.
+    Switch a safeguard off to see what it protects against. Hover any underlined word for a plain meaning.</p>
   </section>
   <div class="start">
-    <a href="#/p/atlas/run"><b>Start here: a guided run of Atlas</b><span>The flagship: data checked, frozen, printed into 12 PDFs, verified, published.</span></a>
-    <a href="#/p/masterrecord/try"><b>Break the data on purpose</b><span>One click runs a normal run and a changed one side by side and shows only what differs.</span></a>
-    <a href="#/p/regional/data"><b>Ask the data a question</b><span>A SQL console on each pipeline's database, with questions that teach joins, CTEs and window functions.</span></a>
-    <a href="#/ideas"><b>The nine big ideas</b><span>Understand these and you understand all eight pipelines.</span></a>
-    <a href="#/interview"><b>Interview prep</b><span>A 30-second pitch, a 2-minute walkthrough, real stories, honest answers.</span></a>
-    <a href="#/cards"><b>Flashcards</b><span>Every interview question, simple answer first, technical second.</span></a>
+    <a href="#/p/masterrecord/flow"><b>Start here: click through a flow</b><span>MasterRecord - three sources disagree, a person decides, one cell is written.</span></a>
+    <a href="#/p/openbadge/flow"><b>Switch off a safeguard</b><span>Remove the check after upload and watch a broken file go live - for real.</span></a>
+    <a href="#/prep"><b>My prep</b><span>Your pitch, questions by role, and where each pipeline fits your own work. ${PRIVATE}</span></a>
   </div>
   <h2>The pipelines</h2>
   <div class="grid">${C.pipelines.map(p => `
-    <a class="card" href="#/p/${p.key}">
+    <a class="card" href="#/p/${p.key}/flow">
       <span class="num">${String(p.order).padStart(2, "0")}${done[p.key] ? " &middot; guided run completed" : ""}</span>
       <h3>${esc(p.title)}</h3><p>${esc(p.tagline)}</p>
-      <div class="chips">${p.skills.slice(0, 4).map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div>
+      ${C.prep && C.prep.work_hints ? `<p class="note"><b>In real work:</b> ${esc(C.prep.work_hints[p.key])}</p>` : ""}
     </a>`).join("")}</div>`;
 }
 
 function pipeline(key, tab) {
   const p = C.pipelines.find(x => x.key === key); if (!p) return home();
-  const tabs = [["overview", "Overview"], ["run", "Guided run"], ["try", "Experiments"], ["data", "Query the data"],
-                ["why", "Why built this way"], ["wrong", "What goes wrong"], ["questions", "Questions"], ["video", "Video"]];
+  const tabs = [["flow", "The flow"], ["run", "Guided run"], ["try", "Try it"], ["data", "Query the data"], ["deeper", "Go deeper"]];
   app.innerHTML = `
     <section class="hero"><div class="eyebrow">Pipeline ${p.order} of 8</div><h1>${esc(p.title)}</h1><p class="lede">${esc(p.tagline)}</p></section>
     <nav class="tabs">${tabs.map(([k, l]) => `<a href="#/p/${key}/${k}" class="${k === tab ? "on" : ""}">${l}</a>`).join("")}</nav>
     <div id="tab"></div>`;
-  ({ overview, run: guided, why, wrong, questions, try: tryit, data: dataTab, video })[tab](p, $("#tab"));
+  ({ flow: flowTab, run: guided, try: tryit, data: dataTab, deeper })[tab in { flow: 1, run: 1, try: 1, data: 1, deeper: 1 } ? tab : "flow"](p, $("#tab"));
 }
 
-function overview(p, el) {
+function flowTab(p, el) {
   el.className = "section";
-  el.innerHTML = `
-    <div class="two">
-      <div class="card"><span class="eyebrow">The story</span><p>${terms(p.story)}</p></div>
-      <div class="card"><span class="eyebrow">In one minute (say this)</span><p>${terms(p.one_minute)}</p></div>
-    </div>
-    <h2>What happens, step by step</h2>
-    <div class="flow">${p.steps.map(s => `<div class="step"><b>${esc(s.name)}</b><span>${terms(s.plain)}</span><small>${esc(s.technical)}</small></div>`).join("")}</div>
-    <div class="two">
-      <div class="card"><span class="eyebrow">What goes in</span><table>${p.inputs.map(i => `<tr><td><code>${esc(i.name)}</code></td><td>${terms(i.what)}</td></tr>`).join("")}</table></div>
-      <div class="card"><span class="eyebrow">What comes out</span><table>${p.outputs.map(o => `<tr><td><code>${esc(o.name)}</code></td><td>${terms(o.what)}</td></tr>`).join("")}</table></div>
-    </div>
-    ${p.rules ? `<h2>The rulebook</h2><div class="scroll"><table><tr><th>rule</th><th>severity</th><th>why it exists</th><th>how to fix</th></tr>
-      ${p.rules.map(r => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.severity)}</td><td>${esc(r.rationale)}</td><td>${esc(r.remediation)}</td></tr>`).join("")}</table></div>` : ""}
-    <div class="card"><span class="eyebrow">Skills this shows</span><div class="chips">${p.skills.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></div>
-    <div class="actions"><a href="#/p/${p.key}/run"><button>Start the guided run</button></a></div>`;
+  const hint = C.prep && C.prep.work_hints ? C.prep.work_hints[p.key] : "";
+  el.innerHTML = `<div class="two"><div class="card"><span class="eyebrow">The problem it solves ${PUBLIC}</span><p>${terms(p.story)}</p></div>
+    <div class="card"><span class="eyebrow">Say it in one minute</span><p>${terms(p.one_minute)}</p>
+    ${hint ? `<p class="note"><b>Where it might fit your work:</b> ${esc(hint)} <a href="#/prep">Write yours in My prep</a> ${PRIVATE}</p>` : ""}</div></div>
+    <div id="flowbox"></div>`;
+  renderFlow($("#flowbox"), C.flows[p.key], {
+    live: true, repo: "https://github.com/data-dl/civicworks-automation-lab",
+    runSwitch: async (node, progress) => {
+      const ids = await api("/api/experiment", { key: p.key, id: node.switch.id });
+      if (ids.error) throw new Error(ids.error);
+      let a = 0, b = 0;
+      const [, off] = await Promise.all([
+        waitRun(ids.normal, s => { a = s.next; progress(`normal run: ${a} lines - without the safeguard: ${b} lines`) }),
+        waitRun(ids.experiment, s => { b = s.next; progress(`normal run: ${a} lines - without the safeguard: ${b} lines`) })]);
+      const cmp = await api(`/api/compare?a=${ids.normal}&b=${ids.experiment}`);
+      return { diff: cmp.lines || [], exit: off.exit, look_for: node.switch.look_for, defend: node.switch.defend };
+    },
+  });
 }
 
-function why(p, el) {
+function deeper(p, el) {
   el.className = "section";
-  el.innerHTML = `<p class="lede">Every design choice had an alternative. Knowing why one was picked is what interviewers probe.</p>` +
-    p.decisions.map(d => `<div class="decision"><h3>${esc(d.choice)}</h3><span class="vs">instead of: ${esc(d.instead_of)}</span><p>${terms(d.why)}</p></div>`).join("");
-}
-
-function wrong(p, el) {
-  el.className = "section";
-  el.innerHTML = `<div class="scroll"><table><tr><th>what goes wrong</th><th>what the pipeline does</th></tr>
-    ${p.failures.map(f => `<tr><td>${terms(f.what)}</td><td>${terms(f.result)}</td></tr>`).join("")}</table></div>`;
+  el.innerHTML = `<p class="lede">The detail, one piece at a time. Open what you need. ${PUBLIC}</p>` + [
+    layer("Why it is built this way", `${p.decisions.length} design decisions and what was chosen instead`,
+      p.decisions.map(d => `<div class="decision"><h3>${esc(d.choice)}</h3><span class="vs">instead of: ${esc(d.instead_of)}</span><p>${terms(d.why)}</p></div>`).join("")),
+    layer("What goes wrong, and what happens", `${p.failures.length} situations`,
+      `<div class="scroll"><table><tr><th>what goes wrong</th><th>what the pipeline does</th></tr>${p.failures.map(f => `<tr><td>${terms(f.what)}</td><td>${terms(f.result)}</td></tr>`).join("")}</table></div>`),
+    layer("What goes in and what comes out", "Inputs and outputs, named",
+      `<div class="two"><div><span class="eyebrow">In</span><table>${p.inputs.map(i => `<tr><td><code>${esc(i.name)}</code></td><td>${terms(i.what)}</td></tr>`).join("")}</table></div>
+       <div><span class="eyebrow">Out</span><table>${p.outputs.map(o => `<tr><td><code>${esc(o.name)}</code></td><td>${terms(o.what)}</td></tr>`).join("")}</table></div></div>`),
+    p.rules ? layer("The rulebook", `${p.rules.length} rules`, `<div class="scroll"><table><tr><th>rule</th><th>severity</th><th>why it exists</th><th>how to fix</th></tr>
+      ${p.rules.map(r => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.severity)}</td><td>${esc(r.rationale)}</td><td>${esc(r.remediation)}</td></tr>`).join("")}</table></div>`) : "",
+    layer("Questions it answers", `${p.questions.length} questions - a short answer and a deeper one`, p.questions.map(qa).join("")),
+    layer("Watch the video", "Narrated, replayed from a real run", p.video ? `<video controls preload="metadata" src="${p.video}"></video>` : "<p>Not recorded yet.</p>"),
+    layer("From a terminal", "The commands behind the buttons", p.try.map(t => `<h4>${esc(t.title)}</h4><p>${terms(t.how)}</p><p class="note"><b>Expect:</b> ${terms(t.expect)}</p>`).join("")),
+  ].join("");
 }
 
 function qa(q) {
   return `<div class="qa"><span class="q">${esc(q.q)}</span><div class="a">
     <p><span class="label">Simple answer</span>${terms(q.simple)}</p><p><span class="label">If they ask for more</span>${terms(q.technical)}</p></div></div>`;
 }
-function questions(p, el) { el.className = "section"; el.innerHTML = p.questions.map(qa).join("") }
 
 // --- shared table helpers --------------------------------------------------------------------------------
 const srcLabel = s => { const [f, t] = s.split("::"); return t ? `<code>${esc(t)}</code> <span class="note">table in ${esc(f)}</span>`
@@ -159,7 +167,7 @@ const waitRun = async (id, onTick) => {
 function tryit(p, el) {
   el.className = "section";
   const X = C.experiments[p.key] || { experiments: [] };
-  el.innerHTML = `<p class="lede">Change one thing in the real input data, then let the real pipeline run on. The Lab runs a normal run beside
+  el.innerHTML = `<p class="lede">${PUBLIC} Change one thing in the real input data, then let the real pipeline run on. The Lab runs a normal run beside
     it and shows you <b>only the lines of output your change made different</b>. Predict first - that is where the learning happens.</p>
     ${X.note ? `<div class="card"><p>${terms(X.note)}</p></div>` : ""}
     ${X.experiments.map((x, i) => `<div class="card exp" id="x${i}"><span class="eyebrow">Experiment ${i + 1}</span><h3>${esc(x.title)}</h3>
@@ -173,8 +181,7 @@ function tryit(p, el) {
       press <b>Change the data</b>: edit any cell of an input file, or run SQL against the run's database, then run the next scene and see what the pipeline does with it.</p></div>
       <div class="card"><span class="eyebrow">Ask the data a question</span><p>The <a href="#/p/${p.key}/data">Query the data</a> tab has a SQL console on this
       pipeline's database, with example questions that teach joins, window functions and more.</p></div></div>
-    <details class="card"><summary><b>From a terminal</b> (the commands behind the buttons)</summary>
-      ${p.try.map(t => `<h4>${esc(t.title)}</h4><p>${terms(t.how)}</p><p class="note"><b>Expect:</b> ${terms(t.expect)}</p>`).join("")}</details>`;
+`;
   el.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => {
     const i = +b.dataset.x, x = X.experiments[i], out = $(`#xr${i}`), st = $(`#xs${i}`);
     b.disabled = true; out.innerHTML = ""; st.textContent = "starting both runs...";
@@ -265,12 +272,6 @@ async function changeData(runId, p) {
       $("#saved").textContent = s.error ? s.error : `saved ${s.rows} rows - now run the next scene`;
     };
   });
-}
-
-function video(p, el) {
-  el.className = "section";
-  el.innerHTML = p.video ? `<video controls preload="metadata" src="${p.video}"></video><p class="note">Replayed from a real run of the demo; captions explain each scene.</p>`
-                         : `<p class="lede">The video for this pipeline is being made.</p>`;
 }
 
 // --- the guided run ----------------------------------------------------------------------------------
@@ -427,43 +428,62 @@ async function openFile(run, path) {
 }
 
 // --- study pages ------------------------------------------------------------------------------------------
-function ideas() {
-  app.innerHTML = `<section class="hero"><div class="eyebrow">Architecture, from first principles</div><h1>Nine ideas behind all eight pipelines</h1>
-    <p class="lede">Each pipeline is these ideas applied to one problem. If an interviewer asks "why did you build it this way?", the answer is almost always one of these.</p></section>` +
-    C.ideas.map((i, n) => `<div class="card"><span class="num">${n + 1}</span><h3>${esc(i.title)}</h3><p>${terms(i.plain)}</p>
-      <p class="note"><b>Why:</b> ${terms(i.why)}</p><p class="note"><b>Where to see it:</b> ${esc(i.where)}</p></div>`).join("");
-}
-function glossary() {
+function concepts() {
   const entries = Object.entries(C.glossary).sort((a, b) => a[0].localeCompare(b[0]));
-  app.innerHTML = `<section class="hero"><div class="eyebrow">${entries.length} words</div><h1>Glossary</h1>
-    <p class="lede">Every technical word in the Lab, in plain language with an everyday comparison.</p>
-    <input type="search" id="gq" placeholder="Search, e.g. idempotent"></section><div class="gloss" id="gl"></div>`;
+  app.innerHTML = `<section class="hero"><div class="eyebrow">Concepts ${PUBLIC}</div><h1>The ideas behind all eight pipelines</h1>
+    <p class="lede">Nine ideas explain why the pipelines are built the way they are. Every technical word is in the glossary below, in plain
+    language with an everyday comparison.</p></section>` +
+    C.ideas.map((i, n) => layer(`${n + 1}. ${i.title}`, i.plain.length > 110 ? i.plain.slice(0, 107) + "..." : i.plain,
+      `<p>${terms(i.plain)}</p><p class="note"><b>Why:</b> ${terms(i.why)}</p><p class="note"><b>Where to see it:</b> ${esc(i.where)}</p>`)).join("") +
+    `<h2>Glossary</h2><input type="search" id="gq" placeholder="Search, e.g. idempotent"><div class="gloss" id="gl"></div>`;
   const draw = f => { $("#gl").innerHTML = entries.filter(([k, v]) => !f || (k + v.plain).toLowerCase().includes(f.toLowerCase()))
     .map(([k, v]) => `<div class="g"><b>${esc(k)}</b><span>${esc(v.plain)}${v.like ? ` <i>Like ${esc(v.like.charAt(0).toLowerCase() + v.like.slice(1))}</i>` : ""}</span></div>`).join("") };
   $("#gq").oninput = e => draw(e.target.value); draw("");
 }
-function interview() {
-  const I = C.interview;
-  app.innerHTML = `<section class="hero"><div class="eyebrow">Talking about it</div><h1>Interview prep</h1>
-    <p class="lede">Say the plain version first. Add the deeper version only when they ask - that is how experienced engineers answer.</p></section>
-    <div class="card"><span class="eyebrow">30-second pitch</span><p>${terms(I.pitch_30s)}</p></div>
-    <div class="card"><span class="eyebrow">2-minute walkthrough</span><ol>${I.walkthrough_2min.map(s => `<li>${terms(s)}</li>`).join("")}</ol></div>
-    <h2>Stories (situation, problem, action, result)</h2>
-    ${I.stories.map(s => `<div class="card"><h3>${esc(s.title)}</h3><p><b>Situation.</b> ${terms(s.situation)}</p><p><b>Problem.</b> ${terms(s.problem)}</p>
-      <p><b>What I did.</b> ${terms(s.action)}</p><p><b>Result.</b> ${terms(s.result)}</p></div>`).join("")}
-    <h2>"Did AI write this?"</h2>
-    ${qa({ q: "How did you use AI to build this?", simple: I.about_ai.plain, technical: I.about_ai.deeper })}
-    <div class="two"><div class="card"><span class="eyebrow">What you would change for production</span><ul>${I.production_changes.map(x => `<li>${terms(x)}</li>`).join("")}</ul></div>
-    <div class="card"><span class="eyebrow">Which roles it speaks to</span>${Object.entries(I.roles).map(([r, t]) => `<p><b>${esc(r)}:</b> ${terms(t)}</p>`).join("")}</div></div>
-    <h2>Every pipeline's questions</h2>${C.pipelines.map(p => `<h3>${esc(p.title)}</h3>${p.questions.map(qa).join("")}`).join("")}`;
+
+async function prep() {
+  if (!C.prep) {
+    app.innerHTML = `<section class="hero"><div class="eyebrow">My prep</div><h1>No private prep on this computer</h1>
+      <p class="lede">Interview prep lives outside the repository, in a folder called <code>civicworks-prep</code> next to it (or wherever
+      <code>CIVICWORKS_PREP</code> points), so it is never published. Everything else in the Lab works without it.</p></section>`;
+    return;
+  }
+  const I = C.prep.interview, notes = await api("/api/notes");
+  const note = (key, label, hint) => `<div class="worksheet"><label for="n-${esc(key)}"><b>${esc(label)}</b>${hint ? `<span class="note">${esc(hint)}</span>` : ""}</label>
+    <textarea id="n-${esc(key)}" data-note="${esc(key)}" rows="3" placeholder="Write it in your own words...">${esc(notes[key] || "")}</textarea></div>`;
+  app.innerHTML = `<section class="hero"><div class="eyebrow">My prep ${PRIVATE}</div><h1>Get ready to talk about it</h1>
+    <p class="lede">Nothing on this page is in the GitHub repository or on the website. It lives in <code>${esc(C.prep.folder)}</code>, and what you
+    type is saved there as you go.</p></section>
+    <div class="prep-nav"><a href="#pitch">Pitch</a><a href="#map">Map it to your work</a><a href="#roles">Questions by role</a><a href="#stories">Stories</a><a href="#/cards">Flashcards</a></div>
+    <section id="pitch"><h2>Your pitch</h2>
+      <div class="card"><span class="eyebrow">30 seconds</span><p>${terms(I.pitch_30s)}</p></div>
+      ${layer("2-minute walkthrough", "Five beats, in order", `<ol>${I.walkthrough_2min.map(s => `<li>${terms(s)}</li>`).join("")}</ol>`)}
+      ${layer('"Did AI write this?"', "Say it plainly, then show your judgement", `<p>${terms(I.about_ai.plain)}</p><p class="note">${terms(I.about_ai.deeper)}</p>`)}
+      ${note("pitch", "My pitch, in my own words", "Rewrite the 30 seconds so it sounds like you.")}</section>
+    <section id="map"><h2>Where each pipeline fits your work</h2>
+      <p class="lede">These pipelines are stand-ins for real work you cannot show. For each one, write the real equivalent - the system, the
+      report, the people - so you can say "this is like what I do when..." in an interview.</p>
+      ${C.pipelines.map(p => note("map-" + p.key, p.title, (C.prep.work_hints || {})[p.key])).join("")}</section>
+    <section id="roles"><h2>Questions by role</h2><p class="lede">Answer out loud first, then open the outline. The outline is a checklist, not a script.</p>
+      ${Object.entries(C.prep.roles || {}).map(([role, qs]) => `<h3>${esc(role)}</h3>` + qs.map(q => layer(q.q, "Answer it, then open",
+        `<ul>${q.outline.map(o => `<li>${terms(o)}</li>`).join("")}</ul><p class="note"><b>Point to:</b> ${esc(q.point_to)}</p>`)).join("")).join("")}</section>
+    <section id="stories"><h2>Stories</h2>${I.stories.map(s => layer(s.title, "Situation, problem, what I did, result",
+      `<p><b>Situation.</b> ${terms(s.situation)}</p><p><b>Problem.</b> ${terms(s.problem)}</p><p><b>What I did.</b> ${terms(s.action)}</p><p><b>Result.</b> ${terms(s.result)}</p>`)).join("")}
+      ${layer("What I would change for production", "When they ask what is missing", `<ul>${I.production_changes.map(x => `<li>${terms(x)}</li>`).join("")}</ul>`)}</section>`;
+  let timer;
+  app.querySelectorAll("[data-note]").forEach(ta => ta.oninput = () => {
+    clearTimeout(timer); ta.classList.add("saving");
+    timer = setTimeout(async () => { await api("/api/notes", { key: ta.dataset.note, text: ta.value }); ta.classList.remove("saving") }, 600);
+  });
 }
+
 function cards() {
   const all = C.pipelines.flatMap(p => p.questions.map(q => ({ ...q, from: p.title })));
   const known = store.get("known", {});
   let i = 0, shown = false;
   const draw = () => {
     const left = all.filter(q => !known[q.q]); const q = left[i % Math.max(left.length, 1)];
-    app.innerHTML = `<section class="hero"><div class="eyebrow">Flashcards</div><h1>Answer out loud, then check</h1>
+    app.innerHTML = `<section class="hero"><div class="eyebrow">Flashcards ${PRIVATE}</div><h1>Answer out loud, then check</h1>
       <div class="meter"><i style="width:${Math.round(100 * (all.length - left.length) / all.length)}%"></i></div>
       <p class="note">${all.length - left.length} of ${all.length} marked as known. Progress is saved in this browser.</p></section>
       ${q ? `<div class="flash"><span class="note">${esc(q.from)}</span><span class="q">${esc(q.q)}</span>

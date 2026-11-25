@@ -27,12 +27,15 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
-from . import experiments, rowdiff
+from . import experiments, flows, rowdiff
 
 ROOT = Path(__file__).resolve().parents[2]          # the repository
 LEARN = ROOT / "learn"
 STATIC = Path(__file__).with_name("static")
 RUNS = ROOT / "build" / "lab-runs"
+# Private interview prep lives OUTSIDE the repository, so it never reaches GitHub: a folder named
+# civicworks-prep next to the repository, or wherever CIVICWORKS_PREP points.
+PREP = Path(os.environ.get("CIVICWORKS_PREP") or ROOT.parent / "civicworks-prep")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 PREVIEW_ROWS = 80
 
@@ -49,8 +52,45 @@ def load_content() -> dict:
     return {"pipelines": pipelines,
             "glossary": yaml.safe_load((LEARN / "glossary.yaml").read_text(encoding="utf-8"))["terms"],
             "ideas": yaml.safe_load((LEARN / "big_ideas.yaml").read_text(encoding="utf-8"))["ideas"],
-            "interview": yaml.safe_load((LEARN / "interview.yaml").read_text(encoding="utf-8")),
-            "experiments": yaml.safe_load((LEARN / "experiments.yaml").read_text(encoding="utf-8"))}
+            "hiring": yaml.safe_load((LEARN / "hiring.yaml").read_text(encoding="utf-8")),
+            "flows": flows.load(),
+            "experiments": _experiments(),
+            "prep": load_prep()}
+
+
+def load_prep() -> dict | None:
+    """Your private prep - interview notes, role questions, work-mapping hints - if this computer has it."""
+    if not (PREP / "interview.yaml").exists():
+        return None
+    prep = {"interview": yaml.safe_load((PREP / "interview.yaml").read_text(encoding="utf-8"))}
+    if (PREP / "questions.yaml").exists():
+        prep.update(yaml.safe_load((PREP / "questions.yaml").read_text(encoding="utf-8")))
+    prep["folder"] = str(PREP)
+    return prep
+
+
+def read_notes() -> dict:
+    f = PREP / "my-notes.json"
+    return json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
+
+
+def save_note(key: str, text: str) -> None:
+    if not PREP.exists():
+        raise ValueError("no private prep folder on this computer")
+    notes = read_notes()
+    notes[key] = text[:20000]
+    tmp = PREP / "my-notes.json.writing"
+    tmp.write_text(json.dumps(notes, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, PREP / "my-notes.json")
+
+
+def _experiments() -> dict:
+    """Experiments (data changes) and safeguard switches, per pipeline, plus the SQL questions."""
+    x = yaml.safe_load((LEARN / "experiments.yaml").read_text(encoding="utf-8"))
+    guards = yaml.safe_load((LEARN / "safeguards.yaml").read_text(encoding="utf-8"))
+    for key, items in guards.items():
+        x.setdefault(key, {"experiments": []})["safeguards"] = items
+    return x
 
 
 CONTENT = load_content()
@@ -109,13 +149,26 @@ def diff(before: dict, after: dict) -> dict:
             "rows": rowdiff.changes(before.get("contents", {}), after.get("contents", {}))}
 
 
+def mask(line: str, workspace: Path) -> str:
+    """Show paths relative to the run or the repository, never this machine's folder names."""
+    for path, label in ((workspace, "<workspace>"), (ROOT, "<repo>"), (Path(sys.base_prefix), "<python>"),
+                        (Path.home(), "~")):
+        for form in {str(path), str(path.resolve()), path.as_posix(), path.resolve().as_posix()}:
+            line = line.replace(form, label)
+    return line
+
+
 def start_run(key: str, experiment: dict | None = None, auto: bool = False) -> Run:
+    """Start a demo. An experiment either edits the inputs after a scene, or switches one safeguard off."""
     if key not in PROJECTS:
         raise ValueError(f"unknown pipeline {key}")
     run_id = f"{key}-{time.strftime('%H%M%S')}-{uuid.uuid4().hex[:4]}"
     ws = RUNS / run_id
     ws.parent.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, "CIVICWORKS_STEP": "1", "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
+    env.pop("CIVICWORKS_SAFEGUARD_OFF", None)
+    if experiment and experiment.get("safeguard"):
+        env["CIVICWORKS_SAFEGUARD_OFF"] = experiment["safeguard"]
     proc = subprocess.Popen([sys.executable, "-m", key, "demo", "--out", str(ws)], cwd=ROOT / PROJECTS[key],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                             encoding="utf-8", env=env, creationflags=NO_WINDOW, bufsize=1)
@@ -139,7 +192,7 @@ def _reader(run: Run) -> None:
             except ValueError:
                 pass
         with RUN_LOCK:
-            run.lines.append({"scene": run.scene, "text": line.replace(str(run.workspace), "<workspace>")})
+            run.lines.append({"scene": run.scene, "text": mask(line, run.workspace)})
     run.exit_code = run.proc.wait()
     _pause(run, final=True)
 
@@ -153,7 +206,9 @@ def _pause(run: Run, final: bool = False) -> None:
     run.changes[run.scene] = change
     run.snapshots.append(snap)
     exp = run.experiment
-    if exp and not final and run.applied is None and run.scene == exp.get("after", 1):
+    if exp and exp.get("safeguard") and run.applied is None:
+        run.applied = {"edits": [], "safeguard": exp["safeguard"], "rows": []}
+    if exp and exp.get("edits") and not final and run.applied is None and run.scene == exp.get("after", 1):
         _apply_experiment(run, exp)
     run.status = "done" if final else "paused"
     if run.auto and not final:
@@ -178,7 +233,8 @@ BASELINES: dict[str, Run] = {}
 
 
 def find_experiment(key: str, exp_id: str) -> dict:
-    exp = next((e for e in CONTENT["experiments"].get(key, {}).get("experiments", []) if e["id"] == exp_id), None)
+    spec = CONTENT["experiments"].get(key, {})
+    exp = next((e for e in spec.get("experiments", []) + spec.get("safeguards", []) if e["id"] == exp_id), None)
     if exp is None:
         raise ValueError(f"unknown experiment {exp_id}")
     return exp
@@ -195,7 +251,8 @@ def start_experiment(key: str, exp_id: str) -> dict:
 
 def compare_runs(a: Run, b: Run) -> list[dict]:
     with RUN_LOCK:
-        return experiments.compare(list(a.lines), [x for x in b.lines if not x["text"].startswith("~~ ")])
+        return experiments.compare(list(a.lines), [x for x in b.lines if not x["text"].startswith("~~ ")
+                                                   and "TEACHING SWITCH" not in x["text"]])
 
 
 # --- the run's data: SQL console and editable CSV inputs -------------------------------------------------
@@ -411,6 +468,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"id": run.id, "key": run.key, "status": run.status, "scene": run.scene,
                                    "exit": run.exit_code, "lines": lines, "next": since + len(lines),
                                    "changes": run.changes, "applied": run.applied})
+            if url.path == "/api/notes":
+                return self._json(read_notes())
             if url.path == "/api/compare":
                 return self._json({"lines": compare_runs(ACTIVE[q["a"][0]], ACTIVE[q["b"][0]])})
             if url.path == "/api/csv":
@@ -461,6 +520,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/start":
                 run = start_run(body["key"])
                 return self._json({"run": run.id})
+            if url.path == "/api/notes":
+                save_note(str(body["key"])[:80], str(body["text"]))
+                return self._json({"ok": True})
             if url.path == "/api/experiment":
                 return self._json(start_experiment(body["key"], body["id"]))
             if url.path == "/api/sql":

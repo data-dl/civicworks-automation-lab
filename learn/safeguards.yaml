@@ -1,0 +1,81 @@
+# "What if this piece were missing?" - one safeguard per pipeline that the Lab can switch off for a single
+# demo run (CIVICWORKS_SAFEGUARD_OFF=<safeguard>; see runkit.guard). A normal run goes beside it, and only the
+# output lines that differ are shown. Each one is a design decision you can defend in an interview.
+#
+# step:        which step of the pipeline's flow it belongs to (matches flows.yaml)
+# protects:    the risk, in plain words
+# look_for:    what the real run shows with it switched off (recorded by tools/record_experiments.py)
+# defend:      how to explain the decision in one or two sentences
+
+atlas:
+  - id: off-sign-off
+    safeguard: sign-off
+    step: freeze
+    title: Remove the editor's sign-off
+    protects: A person must approve the checked data before twelve directories are printed and published.
+    predict: The checks pass in scene 3. Without a sign-off step, what happens next - and who is recorded as the approver?
+    look_for: "Scene 3 publishes all twelve directories at once - PUBLISHED - and the release record names the approver as \"nobody\". In the normal run it stops at the freeze step until the directory editor signs off in scene 4."
+    defend: Checks prove the data is valid, not that it is right to publish. A named sign-off puts a person's judgement and name on every release, and the release record shows who it was.
+openbadge:
+  - id: off-verify
+    safeguard: verify-before-go-live
+    step: verify
+    title: Remove the check after upload
+    protects: The public file is fetched back over HTTP and compared, by fingerprint, with what was built - before anyone is pointed at it.
+    predict: In scene 4 the upload is cut off half way. Without the check, what do consumers get?
+    look_for: "The half-uploaded file in scene 4 goes live: the pointer moves to R0003 and every consumer is sent a broken file. The next release run then crashes trying to read it, so the registry is stuck until someone repairs it by hand. Normally the fingerprint check catches the mismatch, the pointer stays on the last good release and a ticket is written."
+    defend: Writing a file is not the same as publishing it correctly. Verifying what is actually served, and only then moving the pointer, means a broken upload can never become "latest".
+regional:
+  - id: off-blocking
+    safeguard: blocking-checks
+    step: approve
+    title: Let the director approve despite blocking problems
+    protects: A quarter cannot be approved while a venue is missing or its totals do not add up.
+    predict: In scene 3 one venue has not sent its file and another's totals are wrong. What gets approved, and what do the board and the regional leads receive?
+    look_for: "Scene 3 approves the quarter with only 14 of 16 venues and a total that does not add up, and freezes it read-only as v1. When the missing and corrected files arrive in scene 4 it is too late: the quarter is \"already approved\" with the wrong numbers, and fixing it needs a new version."
+    defend: An approval is a promise that the numbers are complete. The pipeline will not let a person make that promise while it can see they are not.
+ledgerguard:
+  - id: off-row-proof
+    safeguard: row-count-proof
+    step: prove
+    title: Stop proving each export's row count
+    protects: Every export must contain as many rows as its source - an empty or cut-off file is quarantined, and yesterday's good file is kept.
+    predict: On day 2 the desktop export "succeeds" but contains no rows. What becomes today's published data?
+    look_for: "Day 2's export with 0 of 120 rows is marked ok and published as that day's data, replacing yesterday's good file. Normally it is quarantined with the reason, and yesterday's file is kept and marked stale."
+    defend: The most dangerous failure is the silent one - a job that reports success with nothing in it. Checking the row count against the source turns that into a visible, named failure.
+safesite:
+  - id: off-return-checks
+    safeguard: return-checks
+    step: check
+    title: Accept returns without checking them
+    protects: Each spreadsheet is checked - required fields, allowed severities, totals that match - before its numbers are used.
+    predict: Three returns have problems in scene 2. What happens to them, and to the quarterly report's numbers?
+    look_for: "The code no longer checks the returns, but the run still stops in scene 2: the database's own CHECK constraint refuses the made-up severity \"HIGH\" from F08. That is defence in depth - two independent layers. Without the code's checks, F03's missing evidence and F05's wrong totals would have gone straight into the report; the database only knows about severities."
+    defend: A report is only as good as its worst input. Checking each return at the door, and sending it back with the exact row and reason, is cheaper than finding the error in a published report.
+masterrecord:
+  - id: off-hold
+    safeguard: hold-for-a-person
+    step: resolve
+    title: Let the code pick a winner when sources disagree
+    protects: When two sources disagree on a field and neither is the authority for it, a person decides.
+    predict: Two workshops have feeds that disagree on a field with no authority. What would be written to the master spreadsheet, and on whose say-so?
+    look_for: "GJF-0005 and GJF-0008 are no longer held: the first source in the precedence order wins and is written into the master spreadsheet in scene 5, justified by nothing but the order. Only one hold is left for the registrar."
+    defend: When no rule decides, picking one is a guess dressed up as a fact. Holding it for the registrar keeps every change in the master traceable to either a rule or a person.
+reconcilehub:
+  - id: off-review
+    safeguard: review-before-commit
+    step: commit
+    title: Approve the roster before the held cases are decided
+    protects: Nothing is approved while a possible id change, a missing id or a possible duplicate is waiting for a reviewer.
+    predict: In scene 3 someone tries to approve before review. Without the block, what is approved - and what happens when the reviewer decides afterwards?
+    look_for: "Scene 3 approves the roster with three cases undecided. When the reviewer decides in scene 4, the correct roster differs from what was approved, so the approval in scene 5 is refused and fixing it needs a second, superseding release with a reason. One clean approval becomes two."
+    defend: Approving with open questions means the access list is wrong for whoever is in them, and fixing it later needs a second, superseding release. Blocking until review is done keeps one clean approval.
+opspilot:
+  - id: off-approval
+    safeguard: publish-approval
+    step: approve
+    title: Let publishing steps run without approval
+    protects: Steps that publish wait for a named person; everything else runs on its own.
+    predict: In scene 3 two steps publish. Without the approval gate, do they wait - and who is recorded as approving them?
+    look_for: "Both publishing steps run straight away in scene 3 - the badge registry goes live and the regional quarter is approved - and the run is COMPLETE before any person has looked. Normally both wait as \"awaiting approval\" until a person approves them in scene 4."
+    defend: An automated operator should be able to prepare anything but release nothing on its own. The approval gate is the line between "the machine did the work" and "a person decided it goes out".

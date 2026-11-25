@@ -55,6 +55,25 @@ def replace(src: str | Path, dst: str | Path, attempts: int = 8) -> None:
             time.sleep(0.05 * 2 ** n)
 
 
+_ANNOUNCED: set[str] = set()
+
+
+def guard(name: str) -> bool:
+    """Is the safeguard `name` on? Always yes - unless the teaching Lab switched it off for one run.
+
+    The Lab's "what if this piece were missing?" switches set CIVICWORKS_SAFEGUARD_OFF=<name> for a demo run, so
+    you can see what the safeguard protects against. A switched-off safeguard announces itself loudly in the
+    output, and nothing in normal use sets the variable.
+    """
+    off = {s.strip() for s in os.environ.get("CIVICWORKS_SAFEGUARD_OFF", "").split(",") if s.strip()}
+    if name not in off:
+        return True
+    if name not in _ANNOUNCED:
+        _ANNOUNCED.add(name)
+        print(f"  !! TEACHING SWITCH: the '{name}' safeguard is OFF for this run", flush=True)
+    return False
+
+
 def atomic_write_bytes(path: str | Path, data: bytes) -> Path:
     """Write to a temporary file beside the target, flush it to disk, then rename it into place."""
     path = Path(path)

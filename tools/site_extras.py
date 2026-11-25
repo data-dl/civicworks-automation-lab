@@ -57,7 +57,7 @@ EXP_JS = """
 </script>"""
 
 
-def experiments_section(key: str) -> str:
+def experiments_section(key: str, bare: bool = False) -> str:
     f = DOCS / "data" / "experiments" / f"{key}.json"
     if not f.exists():
         return ""
@@ -71,6 +71,8 @@ def experiments_section(key: str) -> str:
       <div><button class="btn" data-exp="{n}">Show what the real pipeline did</button></div><div id="expout{n}"></div></div>"""
                     for n, x in enumerate(xs))
     payload = json.dumps(xs, ensure_ascii=False).replace("</", "<\\/")
+    if bare:
+        return f"{cards}<script type='application/json' id='exp-data'>{payload}</script>{EXP_JS}"
     return (f"<section id='experiments'><span class='eyebrow'>What if? - experiments on the real code</span>"
             f"<h2>Break the data on purpose and watch what happens</h2>"
             f"<p class='lede'>Each experiment changed one thing in the real input data and ran the real pipeline beside a normal run. "
@@ -119,7 +121,7 @@ SQL_JS = """
 </script>"""
 
 
-def sql_section(key: str, queries: dict) -> str:
+def sql_section(key: str, queries: dict, bare: bool = False) -> str:
     q = queries.get(key)
     dbfile = DOCS / "data" / "db" / f"{key}.sqlite"
     if not q or not dbfile.exists():
@@ -128,6 +130,17 @@ def sql_section(key: str, queries: dict) -> str:
     chips = "".join(f'<button class="chip qbtn" data-q="{n}" title="{esc(x["teaches"])}">{esc(x["title"])}</button>'
                     for n, x in enumerate(q["list"]))
     payload = json.dumps(q["list"], ensure_ascii=False).replace("</", "<\\/")
+    body = f"""<div class="panel sql" id="sqlbox" data-db="../data/db/{esc(key)}.sqlite">
+    <div class="chips">{chips}</div>
+    <div><button class="btn" id="sqlopen">Open the database</button></div>
+    <div id="sqlui" hidden><p class="m" id="teach"></p><p class="m" id="sqltables"></p>
+      <textarea id="sqltext" rows="8" spellcheck="false"></textarea>
+      <div class="ctas"><button class="btn" id="sqlrun">Run (Ctrl+Enter)</button><button class="btn ghost" id="sqlreset">Reset the database</button></div></div>
+    <p class="m" id="sqlinfo"></p><div id="sqlout"></div></div>
+  <script type="application/json" id="sql-data">{payload}</script>{SQL_JS}"""
+    if bare:
+        return (f"<p class='m'>The real database a run of this pipeline left behind ({esc(q['db'])}, {kb} KB), opened in your browser - "
+                f"nothing to install, nothing sent anywhere. Each example teaches one SQL idea; hover it to see which.</p>{body}")
     return f"""<section id="query"><span class="eyebrow">Query the data - in your browser</span><h2>Ask the pipeline's database a question</h2>
   <p class="lede">This is the real database a run of this pipeline left behind ({esc(q['db'])}, {kb} KB). It opens in your browser - nothing to
   install, nothing sent anywhere. Each example teaches one SQL idea; edit it or write your own. Changes stay in your browser's copy.</p>
@@ -139,72 +152,6 @@ def sql_section(key: str, queries: dict) -> str:
       <div class="ctas"><button class="btn" id="sqlrun">Run (Ctrl+Enter)</button><button class="btn ghost" id="sqlreset">Reset the database</button></div></div>
     <p class="m" id="sqlinfo"></p><div id="sqlout"></div></div>
   <script type="application/json" id="sql-data">{payload}</script>{SQL_JS}</section>"""
-
-
-# --- for hiring teams ------------------------------------------------------------------------------------
-def roles_page_body(d: dict, tests: int) -> str:
-    def link(path: str, text: str) -> str:
-        return f'<a href="{REPO}/blob/main/{path}">{esc(text)}</a>'
-
-    roles = [
-        ("Data engineer", "Pipelines that are safe to run twice, resume after a crash, and never publish half a result.", [
-            ("Idempotent loads and reruns", "A second run changes nothing: decisions, writes and releases are keyed so they cannot repeat.",
-             link("reconcilehub/reconcilehub/commit.py", "reconcilehub/commit.py")),
-            ("Atomic publish and rollback", "Outputs are built in staging, verified, then swapped in with one rename; rollback re-hashes first.",
-             link("atlas-license-directory/atlas/release.py", "atlas/release.py")),
-            ("Checkpoint and resume", "An interrupted run skips only the steps whose outputs still hash the same.",
-             link("opspilot-control-center/opspilot/executor.py", "opspilot/executor.py")),
-            ("Schema migrations", "Numbered SQL migrations with keys, foreign keys, unique indexes and append-only triggers.",
-             link("opspilot-control-center/db/migrations/001_init.sql", "opspilot migrations")),
-            ("CI on two operating systems", f"{tests} tests, lint and every demo on Ubuntu and Windows on every push.",
-             link(".github/workflows/tests.yml", "tests.yml")),
-        ]),
-        ("Analytics engineer", "Data models people can trust: tested rules, documented columns, and SQL that answers real questions.", [
-            ("Data-quality rules as data", "A rule registry with severity, rationale and remediation; blocking rules stop a release and name the record.",
-             link("atlas-license-directory/atlas/rules.yaml", "atlas/rules.yaml")),
-            ("Data dictionaries", "Every table and column documented next to the code.",
-             link("masterrecord-steward/docs/data_dictionary.md", "masterrecord data dictionary")),
-            ("Field-level precedence", "Which source wins for which field, written as configuration and held for a person when no rule decides.",
-             link("masterrecord-steward/masterrecord/precedence.yaml", "precedence.yaml")),
-            ("SQL you can run", f"{d['n_sql']} example questions across the eight databases: joins, CTEs, window functions, anti-joins, date math.",
-             '<a href="p/regional.html#query">the in-browser SQL console</a>'),
-            ("Tests that pin behaviour", "Each pipeline's tests name the behaviour they protect.",
-             link("openbadge-registry-publisher/tests/test_openbadge.py", "test_openbadge.py")),
-        ]),
-        ("Data analyst", "Reports that reconcile to the source, explain changes, and refuse to go out incomplete.", [
-            ("Excel reports with live formulas", "Quarterly packs whose totals are formulas, with charts, approved only when every venue is in.",
-             '<a href="p/regional.html">Regional Programs Analytics</a>'),
-            ("Reconciling numbers", "Category parts must add up to the reported total; a mismatch names the venue.",
-             '<a href="p/regional.html#experiments">the totals experiment</a>'),
-            ("Period-over-period change", "LAG() over a CTE: each venue's change since last quarter.",
-             '<a href="p/regional.html#query">try the query</a>'),
-            ("Word reports for two audiences", "A board summary and a detailed report from the same checked data.",
-             '<a href="p/safesite.html">SafeSite Compliance Cycle</a>'),
-            ("Exception workbooks", "Daily QA exceptions as a workbook people can filter, with the reason for each row.",
-             '<a href="p/ledgerguard.html">LedgerGuard Data Quality</a>'),
-        ]),
-    ]
-    blocks = "".join(f"""<section class="panel role"><span class="eyebrow">{esc(name)}</span><h2>{esc(lead)}</h2>
-      <div class="scroll"><table><tr><th>skill</th><th>what it shows</th><th>where to look</th></tr>{''.join(
-        f'<tr><td><b>{esc(s)}</b></td><td>{esc(w)}</td><td>{where}</td></tr>' for s, w, where in rows)}</table></div></section>"""
-                     for name, lead, rows in roles)
-    story = d["interview"]["stories"][0]
-    return f"""
-<section><span class="eyebrow">For hiring teams</span><h1>What this portfolio shows, role by role</h1>
-<p class="lede">Each row points to the exact file or page where a skill is demonstrated. Everything runs on invented data; every behaviour
-described is covered by a test that runs on every change.</p>
-<div class="stats"><div class="stat"><b>8</b><span>pipelines, separate packages</span></div><div class="stat"><b>{tests}</b><span>automated tests</span></div>
-<div class="stat"><b>{d['n_exp']}</b><span>experiments on the real code</span></div><div class="stat"><b>{d['n_sql']}</b><span>SQL questions to run in the browser</span></div></div></section>
-<section class="panel"><span class="eyebrow">Five minutes</span><h2>The quickest way to judge it</h2><ol class="tour">
-<li><a href="index.html#overview">Watch the two-minute overview</a>.</li>
-<li>Open <a href="p/masterrecord.html#experiments">MasterRecord's experiments</a> and press <b>Show what the real pipeline did</b>: one changed value in a feed becomes exactly one changed cell in the Excel master.</li>
-<li>Run a query in <a href="p/regional.html#query">Regional's SQL console</a> - the database opens in your browser.</li>
-<li>Read <a href="{REPO}/blob/main/openbadge-registry-publisher/openbadge/registry.py">one real fix</a>: an experiment showed a badge with an unknown type silently vanished because of an inner join; it now blocks the release, with a test.</li>
-<li>Skim the <a href="{REPO}">repository</a> and its green CI badge.</li></ol></section>
-{blocks}
-<section class="panel"><span class="eyebrow">A story to ask about</span><h2>{esc(story['title'])}</h2>
-<p><b>Situation.</b> {esc(story['situation'])}</p><p><b>Problem.</b> {esc(story['problem'])}</p><p><b>What I did.</b> {esc(story['action'])}</p>
-<p><b>Result.</b> {esc(story['result'])}</p></section>"""
 
 
 EXTRA_CSS = """

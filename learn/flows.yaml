@@ -1,0 +1,345 @@
+# The shape of each pipeline, step by step, for the interactive flow on the website and in the Lab.
+#
+# A pipeline still reads left to right - A, then B, then C - but at some steps it can leave the line:
+#   stop        nothing continues; the reason is recorded       hold     waits for a person to decide
+#   quarantine  the bad piece is set aside, the rest goes on    refuse   a request is turned down and logged
+#   rollback    an earlier good version is put back
+#
+# code: the real function the step runs (file relative to the project, `symbol` = function or Class.method,
+#       `focus` = start at the first line containing this text, `lines` = how many to show). The site reads the
+#       code from the repository each time it is built, so it can never drift out of date.
+# plain: what that code does, in plain words.   sql: a database rule this step relies on, explained part by part.
+
+atlas:
+  shape: A straight line with two exits - the checks can stop it, and a person must sign off before anything is printed. It can also be resumed part-way and rolled back afterwards.
+  nodes:
+    - id: ingest
+      name: Ingest and clean
+      does: Reads the four catalogs, fingerprints each file, and cleans spellings and phone formats.
+      code: {file: atlas/stages.py, symbol: ingest_and_check, lines: 34}
+      plain:
+        - Every source file is fingerprinted (SHA-256) and counted, so you can later prove exactly what was read.
+        - Raw values are kept next to cleaned ones, so a cleaning mistake can always be traced back.
+        - A listing repeated in the source is collapsed by its key (member, studio, edition) instead of printing twice.
+      sql:
+        object: placement
+        parts:
+          - [PRIMARY KEY, every listing has its own id]
+          - ["REFERENCES guild_member / studio", a listing must point at a member and a studio that really exist]
+          - ["CHECK (edition_code IN ('public','member','inspector'))", only the three real editions are allowed]
+          - ["UNIQUE (member_id, studio_id, edition_code)", the same person cannot be listed twice in the same place and edition]
+    - id: check
+      name: Check
+      does: Runs the rulebook. Any blocking finding stops the release and names the record.
+      branch: {kind: stop, label: blocking finding - nothing is frozen or printed}
+      code: {file: atlas/stages.py, symbol: ingest_and_check, focus: "def find(", lines: 26}
+      plain:
+        - Each rule lives in rules.yaml with its severity, the reason it exists and how to fix it - the rules are data, not buried in code.
+        - A finding names the rule, the record and the detail, so the fix is obvious.
+        - Blocking findings stop the run; advisory ones are reported and the run goes on.
+    - id: freeze
+      name: Sign-off and freeze
+      does: A directory editor approves, and the checked data is copied into a read-only snapshot.
+      branch: {kind: hold, label: waits for the directory editor}
+      safeguard: sign-off
+      code: {file: atlas/stages.py, symbol: freeze, lines: 30}
+      plain:
+        - Freezing needs two things - no blocking findings, and a named approver.
+        - The snapshot is a copy made with SQLite's backup function, then made read-only, and its fingerprint is recorded.
+        - Everything printed later comes from this frozen copy, so the PDFs match exactly what was approved.
+    - id: render
+      name: Render
+      does: Prints twelve PDF directories (four districts, three editions) into a staging folder.
+      code: {file: atlas/release.py, symbol: _run_stage, focus: "if stage == \"render\"", lines: 11}
+      plain:
+        - PDFs go to staging, never straight to the published folder.
+        - Each finished stage is checkpointed, so a crash mid-print resumes without redoing the work before it.
+    - id: verify
+      name: Verify
+      does: Re-opens every PDF and checks page counts, links, bookmarks and footers.
+      branch: {kind: stop, label: a PDF fails - nothing is published}
+      code: {file: atlas/release.py, symbol: _run_stage, focus: "if stage == \"verify\"", lines: 12}
+      plain:
+        - The output is checked independently of the code that made it - a PDF that merely exists is not trusted.
+    - id: publish
+      name: Publish
+      does: Moves the whole folder into place in one step and updates the "current" pointer.
+      branch: {kind: rollback, label: roll back to an earlier month, after re-checking its fingerprints}
+      code: {file: atlas/release.py, symbol: _run_stage, focus: "# publish", lines: 15}
+      plain:
+        - A manifest of fingerprints is written first, then the folder is renamed into place - readers see all twelve files or none.
+        - CURRENT.json says which month is live; rolling back just points it at an earlier verified month.
+
+openbadge:
+  shape: A straight line whose last two steps are the point - the file is checked as the public sees it, and only then does the "latest" pointer move.
+  nodes:
+    - id: snapshot
+      name: Snapshot
+      does: Builds the registry file from the database in one exact, repeatable byte format.
+      code: {file: openbadge/registry.py, symbol: build_payload, lines: 16}
+      plain:
+        - The same data always produces the same bytes (sorted keys, fixed separators), so a fingerprint means something.
+        - LEFT JOINs keep a badge whose type or learner is unknown, so validation can block it - an inner join would make it vanish silently.
+      sql:
+        object: badge
+        parts:
+          - ["REFERENCES learner / badge_type", the database itself refuses a badge for a learner or type it does not know]
+          - ["CHECK (status IN ('approved','revoked','pending'))", only three statuses exist; anything else is refused]
+    - id: validate
+      name: Validate
+      does: Checks the file's shape and every record - unique ids, real dates, known types, no sudden mass removal.
+      branch: {kind: stop, label: blocking finding - nothing published, pointer unchanged}
+      code: {file: openbadge/registry.py, symbol: validate, lines: 32}
+      plain:
+        - First the JSON Schema checks the structure; then each badge is checked for real dates and a known type.
+        - Compared with the last release, a large drop needs a person to accept it on purpose.
+    - id: publish
+      name: Publish data
+      does: Writes the file under a new release name. An existing release file is never overwritten.
+      code: {file: openbadge/release.py, symbol: release, focus: "stage = manifest.begin(\"publish_data\")", lines: 12}
+      plain:
+        - Release files are immutable - writing one that already exists is an error, not an overwrite.
+    - id: verify
+      name: Verify over HTTP
+      does: Fetches the file back the way a consumer would and compares its fingerprint with what was built.
+      branch: {kind: stop, label: mismatch - pointer stays on the last good release, ticket written}
+      safeguard: verify-before-go-live
+      code: {file: openbadge/release.py, symbol: release, focus: "stage = manifest.begin(\"verify_over_http\")", lines: 24}
+      plain:
+        - A small local web server serves the site; the file is downloaded and hashed.
+        - Any difference - missing file, half an upload, changed records - stops the release and writes a ticket.
+    - id: switch
+      name: Switch the pointer
+      does: Points latest.json at the new release, and records the switch.
+      branch: {kind: rollback, label: roll back only to a release that verified}
+      code: {file: openbadge/release.py, symbol: _switch_pointer, lines: 18}
+      plain:
+        - The pointer is a tiny file written atomically, so consumers never see half of it.
+        - Every switch is a row in pointer_history - when, to what, and why.
+
+regional:
+  shape: Files arrive over several days, so the line runs more than once a quarter. It may stop at approval; once approved, a quarter is frozen and a revision becomes a new version.
+  nodes:
+    - id: discover
+      name: Discover and ingest
+      does: Finds each venue's file, fingerprints it, and records it - keeping only the newest version as "accepted".
+      code: {file: regional/pipeline.py, symbol: run_quarter, focus: "# -- discover", lines: 30}
+      plain:
+        - Every file is fingerprinted, so re-delivering the same file changes nothing.
+        - Older versions are kept as "superseded", never deleted.
+      sql:
+        object: submission
+        parts:
+          - ["CHECK (status IN ('accepted','superseded','rejected'))", every file is in exactly one of three states]
+          - ["UNIQUE (venue_id, quarter_id, version, file_sha256)", the same file version cannot be recorded twice]
+          - ["CREATE UNIQUE INDEX one_accepted_submission ... WHERE status = 'accepted'", "a partial index: at most ONE accepted file per venue and quarter - the database enforces it, not just the code"]
+    - id: validate
+      name: Validate
+      does: Every venue present, totals that add up, last quarter unchanged since it was approved.
+      code: {file: regional/pipeline.py, symbol: run_quarter, focus: "stage = manifest.begin(\"validate\")", lines: 30}
+      plain:
+        - missing_contributor - a venue that sent nothing usable.
+        - totals_reconcile - the parts must add up to the reported total.
+        - stale_prior_quarter - if an approved quarter's inputs changed, comparisons against it are not trusted.
+    - id: build
+      name: Build the reports
+      does: Writes the Excel packs with live formulas and charts, marked DRAFT until approved.
+      code: {file: regional/workbooks.py, symbol: build_tier_workbook, lines: 30}
+      plain:
+        - Totals are Excel formulas (SUM, SUMIFS), so anyone can see how each number is made.
+    - id: approve
+      name: Approve and freeze
+      does: The program director approves; the quarter is copied read-only as v1.
+      branch: {kind: hold, label: blocked until every problem is fixed}
+      safeguard: blocking-checks
+      code: {file: regional/pipeline.py, symbol: run_quarter, focus: "if not approve_as:", lines: 22}
+      plain:
+        - Approval is refused while any blocking finding exists.
+        - Once approved, the quarter is never replaced - a revision becomes v2 beside v1.
+
+ledgerguard:
+  shape: Four exports run side by side every day, then meet. A bad export is quarantined and yesterday's good one is kept, so one failure does not stop the others.
+  nodes:
+    - id: export
+      name: Export
+      does: Four jobs pull from three kinds of source - a database, CSV files and a desktop app's export.
+      code: {file: ledgerguard/sources.py, symbol: DeskAppExport.export, lines: 20}
+      plain:
+        - Each source also reports how many rows it holds, so the export can be checked against it.
+    - id: prove
+      name: Prove the export
+      does: A file existing is not success - the header, the row count and the key column must all be right.
+      branch: {kind: quarantine, label: set aside with the reason; yesterday's file kept, marked stale}
+      safeguard: row-count-proof
+      code: {file: ledgerguard/jobs.py, symbol: prove, lines: 21}
+      plain:
+        - No file, changed columns, zero rows, the wrong number of rows, or blank keys - each is a named failure.
+      sql:
+        object: export_job
+        parts:
+          - ["expected_rows / observed_rows", both numbers are stored, so the proof is visible later]
+          - ["CHECK (state IN ('verified','quarantined'))", an export is either proven or set aside - there is no maybe]
+          - ["UNIQUE (run_id, job_code)", each job runs once per day; a rerun cannot double-count]
+    - id: check
+      name: Check for exceptions
+      does: Looks for real-world problems in the data - missing serials, lapsed authorisations, overlaps.
+      code: {file: ledgerguard/jobs.py, symbol: _finish, lines: 18}
+      plain:
+        - Each exception is written in words a person can act on, with the record named.
+    - id: publish
+      name: Archive and publish
+      does: Moves today's set into place in one step, after archiving yesterday's with its fingerprints.
+      branch: {kind: rollback, label: restore an archived day, after re-checking every file}
+      code: {file: ledgerguard/jobs.py, symbol: _publish, focus: "if ws.current.exists():", lines: 16}
+      plain:
+        - Yesterday's set is archived before it is replaced, so it can be restored.
+        - Restoring re-hashes every archived file first and refuses if any has changed.
+
+safesite:
+  shape: A cycle rather than a line - it runs on several dates across a quarter. Each run takes in what arrived, checks it, chases what is late, and only at the end produces the final reports.
+  nodes:
+    - id: plan
+      name: Plan the quarter
+      does: Creates one assignment per facility with its due date and coordinator.
+      code: {file: safesite/cycle.py, symbol: plan_quarter, lines: 22}
+      plain:
+        - INSERT OR IGNORE makes planning safe to repeat - running it twice does not create duplicates.
+    - id: check
+      name: Take in and check returns
+      does: Reads the latest version of each spreadsheet and checks it before using its numbers.
+      branch: {kind: stop, label: sent back to the coordinator with the exact row and reason}
+      safeguard: return-checks
+      code: {file: safesite/cycle.py, symbol: check_return, lines: 40}
+      plain:
+        - Required sheets and columns, real observation ids, allowed severities, dates inside the quarter, evidence for serious findings, and totals that match the rows.
+      sql:
+        object: observation
+        parts:
+          - ["CHECK (severity IN ('S1','S2','S3','S4'))", "the database's own last line of defence: even if the code's checks were skipped, an invented severity cannot be stored"]
+          - ["PRIMARY KEY (assignment_id, observation_id)", an observation id is unique within its facility's return]
+          - ["ON DELETE CASCADE", replacing a return removes its old observations with it]
+    - id: remind
+      name: Remind and escalate
+      does: Drafts reminders 14 and 3 days before the deadline, and an escalation once it has passed.
+      branch: {kind: hold, label: final reports wait while any return is missing}
+      code: {file: safesite/cycle.py, symbol: run_cycle, focus: "if state in (\"open\", \"overdue\"):", lines: 16}
+      plain:
+        - Reminders are drafts (.eml), never sent - a person reviews and sends them.
+      sql:
+        object: reminder
+        parts:
+          - ["UNIQUE (assignment_id, kind)", each kind of reminder can only ever be drafted once per facility - running the same day twice drafts nothing new]
+    - id: report
+      name: Report
+      does: Writes two Word reports; drafts until every return is in, then final, which is never overwritten.
+      code: {file: safesite/reports.py, symbol: produce, lines: 40}
+      plain:
+        - Working, QA and final files live in separate folders, so a draft can never be mistaken for the final.
+
+masterrecord:
+  shape: Two passes with a person in the middle. Pass one proposes changes and holds disagreements; a person decides; pass two writes only the approved cells and proves nothing else moved.
+  nodes:
+    - id: assert
+      name: Collect what each source says
+      does: Every value from each of the three feeds is stored as an "assertion" with its source and date.
+      code: {file: masterrecord/steward.py, symbol: load_assertions, lines: 21}
+      plain:
+        - Nothing is decided yet - this step only records who said what, and when.
+      sql:
+        object: source_assertion
+        parts:
+          - ["UNIQUE (cycle, entity_id, field_code, asserted_value, source_code, observed_at)", the same statement from the same source at the same time is stored once - repeated feed rows cannot pile up]
+    - id: resolve
+      name: Resolve by precedence
+      does: For each field, the precedence rules decide - or the field is held for a person.
+      branch: {kind: hold, label: sources disagree and none is the authority}
+      safeguard: hold-for-a-person
+      code: {file: masterrecord/steward.py, symbol: resolve, lines: 34}
+      plain:
+        - If the field has an authority (say, the registry for certification class), its value wins and the disagreement is recorded.
+        - With no authority, agreeing sources decide; disagreeing sources are held.
+        - A value outside the allowed list is never written - it is held.
+    - id: review
+      name: A person decides
+      does: The registrar approves the changes and settles holds in a decisions file.
+      code: {file: masterrecord/apply.py, symbol: apply_decisions, lines: 28}
+      plain:
+        - Every decision is checked - known proposal, allowed value, named approver - before anything is written.
+    - id: write
+      name: Write back and prove
+      does: Backs up the spreadsheet, writes only the approved cells, and compares every other cell before and after.
+      branch: {kind: stop, label: any other cell moved - the write is discarded}
+      code: {file: masterrecord/apply.py, symbol: apply_decisions, focus: "# 6. prove nothing else moved", lines: 22}
+      plain:
+        - A snapshot of every non-empty cell is taken before and after; a difference outside the approved cells aborts the write.
+        - The new file replaces the old in one step; each write is logged with its backup.
+
+reconcilehub:
+  shape: Compare two lists, decide what is certain, hold what is not. The final step refuses to approve while anything is held, and an approved month is changed only by a new, explained version.
+  nodes:
+    - id: normalise
+      name: Normalise
+      does: Cleans member ids ("fc-17" becomes FC-00017), keeping the raw value.
+      code: {file: reconcilehub/reconcile.py, symbol: norm_id, lines: 6}
+      plain:
+        - Formatting differences are not real differences - but the raw id is kept as evidence.
+    - id: match
+      name: Match
+      does: Exact id matches are decided; near-matches by name in the same space are only suggested.
+      branch: {kind: hold, label: possible id change, missing id or duplicate - a person decides}
+      code: {file: reconcilehub/reconcile.py, symbol: reconcile, focus: "missing = {k: v", lines: 24}
+      plain:
+        - "\"missing\" = approved but not in the access system; \"unknown\" = in the system but not approved."
+        - A name similarity of 0.88 or more in the same space is a suggestion, never an automatic merge.
+      sql:
+        object: match_case
+        parts:
+          - ["disposition ... DEFAULT 'held'", every new case starts as held - deciding is a deliberate act]
+          - ["CHECK (disposition IN ('held','same-person','different-person','exclude'))", only four possible decisions]
+          - [reviewer, who decided is stored with the decision]
+    - id: commit
+      name: Approve
+      does: Writes the approved roster, an import workbook and a change report - only when nothing is held.
+      branch: {kind: hold, label: blocked while any case is held}
+      safeguard: review-before-commit
+      code: {file: reconcilehub/commit.py, symbol: commit, lines: 30}
+      plain:
+        - The roster's fingerprint makes re-runs safe - the same result is "nothing new".
+        - A different result after approval needs a reason and becomes a new version beside the old one.
+
+opspilot:
+  shape: Not a line but a small network - steps run when the steps they depend on are done. It pauses for people, survives a crash, and can only do what its registry allows.
+  nodes:
+    - id: plan
+      name: Plan
+      does: Turns a goal into ordered steps using only registered tools, with no loops.
+      code: {file: opspilot/registry.py, symbol: validate_plan, lines: 24}
+      plain:
+        - A plan that names an unknown tool or depends on a missing step is rejected before anything runs.
+    - id: check
+      name: Check inputs
+      does: Every argument is checked against the tool's contract - paths confined to the workspaces, roles and quarters in the right form.
+      branch: {kind: refuse, label: refused and logged}
+      code: {file: opspilot/registry.py, symbol: check_inputs, lines: 26}
+      plain:
+        - This is what stops "delete everything" or a path outside the workspaces, even if asked.
+    - id: approve
+      name: Wait for approval
+      does: Any step that publishes waits until a named person approves it.
+      branch: {kind: hold, label: awaiting approval}
+      safeguard: publish-approval
+      code: {file: opspilot/executor.py, symbol: OpsPilot.run, focus: "if tool.effect == \"publish\":", lines: 12}
+      plain:
+        - The machine can prepare everything, but releasing is a person's decision.
+    - id: run
+      name: Run and checkpoint
+      does: Runs each step as a separate program and records a fingerprint of what it produced.
+      code: {file: opspilot/executor.py, symbol: OpsPilot.run, focus: "argv = [sys.executable", lines: 16}
+      plain:
+        - No shell and no window - just the registered command with checked arguments.
+        - On resume, a step is skipped only if its outputs still match their fingerprint.
+      sql:
+        object: event_log_no_update
+        parts:
+          - [BEFORE UPDATE ON event_log, runs before any attempt to change a logged event]
+          - ["RAISE(ABORT, 'event_log is append-only')", the change is refused - history can be added to, never rewritten]

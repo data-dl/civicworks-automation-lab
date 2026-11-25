@@ -13,7 +13,10 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from site_extras import EXTRA_CSS, count_tests, experiments_section, roles_page_body, sql_section  # noqa: E402
+from civicworks_lab import flows as flow_data  # noqa: E402
+from site_extras import EXTRA_CSS, count_tests, experiments_section, sql_section  # noqa: E402
+from site_pages import CSS as PAGE_CSS  # noqa: E402
+from site_pages import hiring_page, index_page, pipeline_page  # noqa: E402
 from video_scripts import SCRIPTS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -42,7 +45,6 @@ def load() -> dict:
     return {"pipelines": pipelines, "stats": stats,
             "glossary": yaml.safe_load((LEARN / "glossary.yaml").read_text(encoding="utf-8"))["terms"],
             "ideas": yaml.safe_load((LEARN / "big_ideas.yaml").read_text(encoding="utf-8"))["ideas"],
-            "interview": yaml.safe_load((LEARN / "interview.yaml").read_text(encoding="utf-8")),
             "queries": yaml.safe_load((LEARN / "experiments.yaml").read_text(encoding="utf-8"))["queries"],
             "lab_tests": count_tests("lab"), **counts()}
 
@@ -163,7 +165,7 @@ footer{border-top:1px solid var(--line);background:var(--panel)}footer .in{max-w
 def page(title: str, body: str, depth: int = 0, nav: str = "") -> str:
     up = "../" * depth
     links = [("index.html", "Overview", "home"), ("index.html#pipelines", "Pipelines", "pipelines"),
-             ("learn.html", "Concepts", "learn"), ("run.html", "Run it", "run"), ("roles.html", "For hiring teams", "roles"),
+             ("learn.html", "Concepts", "learn"), ("run.html", "Run it", "run"), ("hiring.html", "For hiring managers", "hiring"),
              (REPO, "GitHub", "gh")]
     navs = "".join(f'<a href="{h if h.startswith("http") else up + h}" class="{"on" if k == nav else ""}">{t}</a>'
                    for h, t, k in links)
@@ -171,65 +173,13 @@ def page(title: str, body: str, depth: int = 0, nav: str = "") -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{esc(title)}</title>
 <meta name="description" content="Eight tested data pipelines on invented data: validation, approvals, rollback, orchestration.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
-<link rel="stylesheet" href="{up}assets/site.css"></head><body>
+<link rel="stylesheet" href="{up}assets/site.css"><link rel="stylesheet" href="{up}assets/flow.css"></head><body>
 <header class="top"><div class="in"><a class="brand" href="{up}index.html"><i>CW</i>CivicWorks Automation Lab</a><nav>{navs}</nav></div></header>
 <main>{body}</main>
 <footer><div class="in"><span>CivicWorks Automation Lab. Every organisation, person, place and number is invented. MIT licensed.</span>
-<span>Built with AI coding assistance to the author's design; every behaviour described here is covered by a test that runs on every change.</span></div></footer>
+<span>Everything on this site is public, and so is the code. Built with AI coding assistance to the author's design; every behaviour
+described here is covered by a test that runs on every change.</span></div></footer>
 </body></html>"""
-
-
-def index(d: dict) -> str:
-    ps = d["pipelines"]
-    tests = sum(p["tests"] for p in ps)
-    cards = "".join(f"""<a class="card" href="p/{p['key']}.html"><img src="videos/{p['key']}-poster.jpg" alt="" loading="lazy">
-      <div class="b"><span class="n">{p['order']:02d}</span><h3>{esc(p['title'])}</h3><p>{esc(p['tagline'])}</p>
-      <div class="chips">{''.join(f'<span class="chip">{esc(s)}</span>' for s in p['skills'][:3])}</div></div></a>""" for p in ps)
-    ops = next(p for p in ps if p["key"] == "opspilot")
-    others = [p for p in ps if p["key"] != "opspilot"]
-    arch = f"""<div class="arch"><div class="ops"><b>{esc(ops['title'])}</b><span>{esc(ops['tagline'])}</span></div>
-      <div class="row">{''.join(f'<a class="p" href="p/{p["key"]}.html"><b>{esc(p["title"])}</b><span>{esc(p["steps"][0]["name"])} &rarr; ... &rarr; {esc(p["steps"][-1]["name"])}</span></a>' for p in others)}</div></div>"""
-    skills = [("Ingestion from several sources", {"atlas", "ledgerguard", "masterrecord", "reconcilehub", "regional"}),
-              ("Schemas, keys and migrations", {p["key"] for p in ps}),
-              ("Data-quality rules that block", {"atlas", "openbadge", "regional", "ledgerguard", "safesite"}),
-              ("Human approval gates", {"atlas", "regional", "safesite", "masterrecord", "reconcilehub", "opspilot"}),
-              ("Versioned outputs and rollback", {"atlas", "openbadge", "regional", "ledgerguard", "reconcilehub"}),
-              ("Checkpoint and resume", {"atlas", "opspilot"}),
-              ("Idempotent reruns", {"safesite", "masterrecord", "reconcilehub", "opspilot", "regional"}),
-              ("Excel / Word / PDF / JSON outputs", {"atlas", "openbadge", "regional", "ledgerguard", "safesite", "masterrecord", "reconcilehub"}),
-              ("Orchestration and safe agents", {"opspilot"})]
-    matrix = "<tr><th>skill</th>" + "".join(f"<th>{esc(p['title'].split()[0])}</th>" for p in ps) + "</tr>" + "".join(
-        f"<tr><td>{esc(s)}</td>" + "".join(f"<td>{'<span class=dot>&#9679;</span>' if p['key'] in keys else ''}</td>" for p in ps) + "</tr>"
-        for s, keys in skills)
-    ideas = "".join(f'<div class="panel"><span class="eyebrow">{n:02d}</span><h3>{esc(i["title"])}</h3><p class="lede" style="font-size:15.5px">{esc(i["plain"])}</p></div>'
-                    for n, i in enumerate(d["ideas"], start=1))
-    return page("CivicWorks Automation Lab", f"""
-<section class="hero" id="overview"><div style="display:grid;gap:18px"><span class="eyebrow">Data engineering portfolio &middot; invented data</span>
-  <h1>Reliable automation, from messy inputs to verified outputs.</h1>
-  <p class="lede">Eight data pipelines for invented organisations. Each one takes data with planted problems, catches them,
-  stops where a person has to decide, and leaves evidence of everything it did.</p>
-  <div class="ctas"><a class="btn" href="#pipelines">See the pipelines</a><a class="btn ghost" href="run.html">Run them yourself</a><a class="btn ghost" href="slides.html">6 slides</a>
-  <a class="btn ghost" href="{REPO}">Source on GitHub</a></div></div>
-  <video controls preload="metadata" poster="videos/overview-poster.jpg" src="videos/overview.mp4"></video></section>
-<section class="stats"><div class="stat"><b>8</b><span>pipelines, each a separate tested package</span></div>
-  <div class="stat"><b>{tests}</b><span>automated tests (+{d['lab_tests']} for the Lab)</span></div><div class="stat"><b>2</b><span>operating systems in CI on every change</span></div>
-  <div class="stat"><b>{d['n_exp']}</b><span>experiments on the real code</span></div><div class="stat"><b>{d['n_sql']}</b><span>SQL questions, in your browser</span></div></section>
-<section><span class="eyebrow">Start here</span><h2>Four ways in, from two minutes to an afternoon</h2><div class="start">
-  <a href="#overview"><i>2 minutes</i><b>Watch the overview</b><span>Narrated, replayed from real runs.</span></a>
-  <a href="p/masterrecord.html#experiments"><i>5 minutes</i><b>Break the data, see what happens</b><span>Experiments on the real code: change one value, see only what it changed.</span></a>
-  <a href="p/regional.html#query"><i>10 minutes</i><b>Query a pipeline's database</b><span>It opens in your browser. Joins, CTEs, window functions.</span></a>
-  <a href="roles.html"><i>For hiring teams</i><b>What it shows, role by role</b><span>Data engineer, analytics engineer, data analyst - with links to the code.</span></a>
-</div></section>
-<section id="pipelines"><span class="eyebrow">The pipelines</span><h2>Each one shown running, with its real outputs</h2>
-  <div class="grid">{cards}</div></section>
-<section><span class="eyebrow">Architecture</span><h2>How it fits together</h2>
-  <p class="lede">Each pipeline stands alone with its own data, rules and tests. OpsPilot runs them as one operation through a fixed list of
-  allowed actions, waits for people before anything is published, and resumes from verified checkpoints.</p>{arch}</section>
-<section><span class="eyebrow">Skills, with evidence</span><h2>Where each skill is shown</h2><div class="scroll"><table class="matrix">{matrix}</table></div></section>
-<section><span class="eyebrow">Design principles</span><h2>Nine ideas behind all eight</h2><div class="grid">{ideas}</div>
-  <p><a href="learn.html">Read them in depth, with the glossary &rarr;</a></p></section>
-<section class="panel"><h3>How this was built</h3><p>{esc(d['interview']['about_ai']['plain'])}</p></section>
-""", nav="home")
 
 
 def erd(tables: list[dict]) -> str:
@@ -310,7 +260,7 @@ STEP_JS = """
 </script>"""
 
 
-def stepper(p: dict) -> str:
+def stepper(p: dict, bare: bool = False) -> str:
     captured = captured_scenes(p["key"])
     rows_file = DOCS / "data" / "rows" / f"{p['key']}.json"
     rows = json.loads(rows_file.read_text(encoding="utf-8")) if rows_file.exists() else {}
@@ -320,6 +270,9 @@ def stepper(p: dict) -> str:
     if not any(d["lines"] for d in data):
         return ""
     payload = json.dumps(data).replace("</", "<\\/")
+    if bare:
+        return (f"<div class='panel stepper' id='stepper'></div><script type='application/json' id='steps-data'>"
+                f"{payload}</script>{STEP_JS}")
     return (f"<section id='step'><span class='eyebrow'>Step through it - no install needed</span><h2>Predict, then see what the real run did</h2>"
             f"<p class='lede'>Every scene of the recorded run. Read what is about to happen, make a prediction, then reveal the actual "
             f"terminal output. To run it yourself one scene at a time, use the <a href='../run.html'>CivicWorks Lab</a>.</p>"
@@ -327,50 +280,19 @@ def stepper(p: dict) -> str:
             f"{payload}</script>{STEP_JS}</section>")
 
 
-def pipeline_page(p: dict) -> str:
+def pipeline_parts(p: dict) -> dict:
     imgs = list(zip(p["images"], [a[2] for a in SCRIPTS[p["key"]]["artifacts"]], strict=False))
-    gallery = "".join(f'<figure><img src="../img/{img.name}" alt="{esc(cap)}" loading="lazy"><figcaption>{esc(cap)}</figcaption></figure>'
-                      for img, cap in imgs)
-    rules = ""
-    if p["rules"]:
-        rules = ("<section id='rules'><span class='eyebrow'>The rulebook</span><h2>Every check, why it exists, how to fix it</h2><div class='scroll'><table>"
-                 "<tr><th>rule</th><th>severity</th><th>why</th><th>fix</th></tr>" +
-                 "".join(f"<tr><td><code>{esc(r['id'])}</code></td><td>{esc(r['severity'])}</td><td>{esc(r['rationale'])}</td>"
-                         f"<td>{esc(r['remediation'])}</td></tr>" for r in p["rules"]) + "</table></div></section>")
-    code = f"{REPO}/tree/main/{p['dir']}"
-    jumps = [("watch", "Watch"), ("step", "Step through"), ("experiments", "Experiments"), ("query", "Query the data"),
-             ("rules", "Rules"), ("model", "Data model"), ("outputs", "Outputs"), ("why", "Why built this way"),
-             ("questions", "Questions"), ("run", "Run it")]
-    subnav = '<nav class="subnav">' + "".join(f'<a href="#{a}">{esc(b)}</a>' for a, b in jumps) + "</nav>"
-    return page(p["title"], f"""{subnav}
-<section class="hero" id="watch"><div style="display:grid;gap:16px"><span class="eyebrow">Pipeline {p['order']} of 8</span><h1>{esc(p['title'])}</h1>
-  <p class="lede">{esc(p['tagline'])}</p><div class="chips">{''.join(f'<span class="chip">{esc(s)}</span>' for s in p['skills'])}</div>
-  <div class="ctas"><a class="btn" href="{code}">Code and README</a><a class="btn ghost" href="../run.html">Run it</a></div>
-  <p class="lede" style="font-size:15px">{p['tests']} automated tests. Video replayed from a real run ({p['stats'].get('real_run', '?')} s).</p></div>
-  <video controls preload="metadata" poster="../videos/{p['key']}-poster.jpg" src="../videos/{p['key']}.mp4">
-  <track kind="captions" src="../videos/{p['key']}.vtt" srclang="en" label="English" default></video></section>
-<section class="two"><div class="panel"><span class="eyebrow">The problem, plainly</span><p>{esc(p['story'])}</p></div>
-  <div class="panel"><span class="eyebrow">What it does, in one minute</span><p>{esc(p['one_minute'])}</p></div></section>
-<section><span class="eyebrow">How it works</span><h2>Step by step</h2><div class="flow">{''.join(f"<div><b>{esc(s['name'])}</b><span>{esc(s['plain'])}</span><small>{esc(s['technical'])}</small></div>" for s in p['steps'])}</div></section>
-<section class="two"><div class="panel"><span class="eyebrow">Inputs</span><table>{''.join(f"<tr><td><code>{esc(i['name'])}</code></td><td>{esc(i['what'])}</td></tr>" for i in p['inputs'])}</table></div>
-  <div class="panel"><span class="eyebrow">Outputs</span><table>{''.join(f"<tr><td><code>{esc(o['name'])}</code></td><td>{esc(o['what'])}</td></tr>" for o in p['outputs'])}</table></div></section>
-{stepper(p)}
-{experiments_section(p['key'])}
-{sql_section(p['key'], QUERIES)}
-{rules}
-<section id="model"><span class="eyebrow">Data model</span><h2>The database, read from its own migrations</h2>
-  <p class="lede">Built by applying the project's numbered migration scripts to an empty database. Blue marks a primary key; amber arrows are
-  foreign keys - links the database itself enforces.</p>{erd(p['schema'])}</section>
-<section id="outputs"><span class="eyebrow">Real outputs</span><h2>What it produced in the recorded run</h2><div class="gallery">{gallery}</div></section>
-<section id="why"><span class="eyebrow">Design decisions</span><h2>Why it is built this way</h2>{''.join(f"<div class='decision'><h3>{esc(x['choice'])}</h3><span class='vs'>instead of: {esc(x['instead_of'])}</span><p>{esc(x['why'])}</p></div>" for x in p['decisions'])}</section>
-<section><span class="eyebrow">Failure handling</span><h2>What goes wrong, and what happens</h2><div class="scroll"><table><tr><th>situation</th><th>result</th></tr>
-  {''.join(f"<tr><td>{esc(f['what'])}</td><td>{esc(f['result'])}</td></tr>" for f in p['failures'])}</table></div></section>
-<section id="questions"><span class="eyebrow">Questions</span><h2>Questions it answers</h2>{''.join(f"<div class='qa'><b>{esc(q['q'])}</b><p><small>In short</small>{esc(q['simple'])}</p><p><small>In depth</small>{esc(q['technical'])}</p></div>" for q in p['questions'])}</section>
-<section id="run"><span class="eyebrow">Run it</span><pre>python start.py              # one command: sets everything up and opens the Lab
-cd {esc(p['dir'])}
-python -m {esc(p['key'])} demo --out build/demo     # or run just this demo
-python -m pytest                                       # and its tests</pre></section>
-""", depth=1, nav="pipelines")
+    rules = ("<div class='scroll'><table><tr><th>rule</th><th>severity</th><th>why</th><th>fix</th></tr>"
+             + "".join(f"<tr><td><code>{esc(r['id'])}</code></td><td>{esc(r['severity'])}</td><td>{esc(r['rationale'])}</td>"
+                       f"<td>{esc(r['remediation'])}</td></tr>" for r in p["rules"]) + "</table></div>")
+    exps = json.loads((DOCS / "data" / "experiments" / f"{p['key']}.json").read_text(encoding="utf-8")) \
+        if (DOCS / "data" / "experiments" / f"{p['key']}.json").exists() else {"experiments": []}
+    return {"stepper": stepper(p, bare=True), "experiments": experiments_section(p["key"], bare=True) if exps["experiments"] else "",
+            "n_exp": len(exps["experiments"]), "sql": sql_section(p["key"], QUERIES, bare=True), "rules": rules,
+            "erd": "<p class='m'>Blue marks a primary key; amber arrows are foreign keys - links the database itself enforces.</p>"
+                   + erd(p["schema"]),
+            "gallery": "".join(f'<figure><img src="../img/{img.name}" alt="{esc(cap)}" loading="lazy"><figcaption>{esc(cap)}</figcaption></figure>'
+                               for img, cap in imgs)}
 
 
 def learn_page(d: dict) -> str:
@@ -412,7 +334,7 @@ pip install {dirs} -e ./lab</pre></section>
 <p class="lede">The Lab is a small local web app. Pick a pipeline and it runs the real demo one scene at a time: before each scene it explains what
 is about to happen and asks you to predict the result; after it, it shows the output and the exact rows and cells that changed. Between
 scenes you can change the data yourself - edit an input file or run SQL - and watch the pipeline react. Each pipeline also has one-click
-experiments, a SQL console with example questions, and the concepts, glossary and interview flashcards.</p>
+experiments, safeguard switches, a SQL console with example questions, and the concepts and glossary. A private <b>My prep</b> area for interview practice appears only on the author's own computer.</p>
 <pre>python -m civicworks_lab          # opens http://127.0.0.1:8870</pre></section>
 <section><h2>Step mode without the Lab</h2><p class="lede">Any demo pauses before each scene if <code>CIVICWORKS_STEP=1</code> is set; press Enter to continue.</p>
 <pre>CIVICWORKS_STEP=1 python -m atlas demo --out build/step</pre></section>
@@ -458,23 +380,30 @@ addEventListener('keydown',e=>{{if(['ArrowRight','PageDown',' '].includes(e.key)
 
 
 def main() -> None:
+    global QUERIES
     d = load()
+    QUERIES = d["queries"]
+    flows = flow_data.load()
+    tests = sum(p["tests"] for p in d["pipelines"])
     (DOCS / "assets").mkdir(parents=True, exist_ok=True)
     (DOCS / "p").mkdir(exist_ok=True)
-    global QUERIES
-    QUERIES = d["queries"]
-    (DOCS / "assets" / "site.css").write_text(CSS.strip() + "\n" + EXTRA_CSS.strip() + "\n", encoding="utf-8")
-    tests = sum(p["tests"] for p in d["pipelines"])
-    (DOCS / "roles.html").write_text(page("For hiring teams - CivicWorks", roles_page_body(d, tests), nav="roles"),
-                                     encoding="utf-8")
-    (DOCS / "index.html").write_text(index(d), encoding="utf-8")
+    (DOCS / "assets" / "site.css").write_text(CSS.strip() + "\n" + EXTRA_CSS.strip() + "\n" + PAGE_CSS.strip() + "\n",
+                                              encoding="utf-8")
+    static = ROOT / "lab" / "civicworks_lab" / "static"
+    for name in ("flow.js", "flow.css"):
+        (DOCS / "assets" / name).write_text((static / name).read_text(encoding="utf-8"), encoding="utf-8")
+    (DOCS / "index.html").write_text(page("CivicWorks Automation Lab", index_page(d, tests), nav="home"), encoding="utf-8")
+    (DOCS / "hiring.html").write_text(page("For hiring managers - CivicWorks", hiring_page(tests), nav="hiring"), encoding="utf-8")
+    (DOCS / "roles.html").write_text('<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=hiring.html">'
+                                     '<title>Moved</title><a href="hiring.html">For hiring managers</a>', encoding="utf-8")
     (DOCS / "learn.html").write_text(learn_page(d), encoding="utf-8")
     (DOCS / "run.html").write_text(run_page(d), encoding="utf-8")
     (DOCS / "slides.html").write_text(deck(d), encoding="utf-8")
     for p in d["pipelines"]:
-        (DOCS / "p" / f"{p['key']}.html").write_text(pipeline_page(p), encoding="utf-8")
+        (DOCS / "p" / f"{p['key']}.html").write_text(
+            page(p["title"], pipeline_page(p, flows[p["key"]], pipeline_parts(p)), depth=1, nav="pipelines"), encoding="utf-8")
     (DOCS / ".nojekyll").write_text("", encoding="utf-8")
-    print(f"site: {len(d['pipelines'])} pipeline pages, {sum(p['tests'] for p in d['pipelines'])} tests counted")
+    print(f"site: {len(d['pipelines'])} pipeline pages, {tests} tests counted")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,62 @@
+# Public: what the portfolio proves, in the words a recruiter or hiring manager uses. Shown on the website's
+# home page and on hiring.html. (Interview practice lives outside the repository, in the private prep folder.)
+
+value: >-
+  Most data problems are not hard queries - they are a wrong number that gets published, a job that
+  "succeeds" with nothing in it, or two systems that quietly disagree. These eight pipelines show how I
+  stop that: every input is checked against rules, people approve what a rule cannot decide, outputs are
+  verified before anyone sees them, and every run leaves evidence. All of it is tested on every change.
+
+one_line: Eight tested data pipelines that catch bad data before it is published, ask a person when a rule cannot decide, and prove what they did.
+
+about_ai: >-
+  An AI coding assistant wrote most of the code and documentation to my design. I decided what each
+  pipeline had to do, which mistakes it had to catch, where a person must approve, and what the tests had
+  to prove, and I reviewed the results. Nothing is claimed without a test that anyone can run.
+
+roles:
+  - role: Data analyst
+    they_want: Numbers you can stand behind, explained so a manager can act on them.
+    expect:
+      - skill: SQL to answer a business question
+        means: Joins, grouping, filtering, period-over-period change - written so someone else can follow it.
+        where: {label: "Regional's SQL console (try the LAG query)", href: "p/regional.html#try"}
+      - skill: Reconciling numbers before reporting them
+        means: Parts add up to totals; every venue is present; a number that moved a lot is explained, not hidden.
+        where: {label: Regional - the totals experiment, href: "p/regional.html#try"}
+      - skill: Reports people actually use
+        means: Excel with live formulas and charts, a Word report per audience, drafts clearly marked until approved.
+        where: {label: Regional and SafeSite outputs, href: "p/regional.html#deeper"}
+      - skill: Spotting and explaining exceptions
+        means: A daily list of what is wrong, in words someone can act on, with the record named.
+        where: {label: LedgerGuard, href: "p/ledgerguard.html"}
+  - role: Analytics engineer
+    they_want: Data models and transformations that are tested, documented and trusted by analysts.
+    expect:
+      - skill: Data-quality tests as code
+        means: Rules with a severity, a reason and a fix; blocking rules stop a release and name the record.
+        where: {label: Atlas's rulebook, href: "p/atlas.html#deeper"}
+      - skill: Modelling and constraints
+        means: Keys, foreign keys, unique and CHECK constraints, numbered migrations - the database enforces the rules too.
+        where: {label: "SafeSite: the database refuses a bad value even when the code's checks are off", href: "p/safesite.html#flow"}
+      - skill: Resolving conflicting sources
+        means: Which source wins for which field, written as configuration; a person decides when no rule does.
+        where: {label: MasterRecord's precedence rules, href: "p/masterrecord.html#flow"}
+      - skill: Documentation and lineage
+        means: Data dictionaries, run manifests with input and output fingerprints, an audit trail per decision.
+        where: {label: GitHub - MasterRecord's data dictionary, href: "https://github.com/data-dl/civicworks-automation-lab/blob/main/masterrecord-steward/docs/data_dictionary.md"}
+  - role: Data engineer
+    they_want: Pipelines that are safe to run twice, recover from failure, and never publish half a result.
+    expect:
+      - skill: Idempotent runs
+        means: Running the same thing twice changes nothing - no duplicate rows, reminders or releases.
+        where: {label: "ReconcileHub: \"nothing new\" on a re-run", href: "p/reconcilehub.html#watch"}
+      - skill: Atomic publish and rollback
+        means: Build in staging, verify, swap in with one rename; roll back only to something that still checks out.
+        where: {label: "OpenBadge: switch off the check after upload", href: "p/openbadge.html#flow"}
+      - skill: Orchestration and recovery
+        means: Steps run in dependency order, resume after a crash without redoing finished work, and wait for approval to publish.
+        where: {label: OpsPilot, href: "p/opspilot.html#flow"}
+      - skill: Testing and CI
+        means: 108 tests; every push installs from scratch and runs everything on Linux and Windows.
+        where: {label: The CI runs on GitHub, href: "https://github.com/data-dl/civicworks-automation-lab/actions"}

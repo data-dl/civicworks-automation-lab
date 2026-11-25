@@ -11,7 +11,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 
 from .reconcile import Recon, Workspace, reconcile, roster_bytes, roster_sha
-from .runkit import SYNTHETIC_NOTICE, Outbox, atomic_write_bytes, utc_now
+from .runkit import SYNTHETIC_NOTICE, Outbox, atomic_write_bytes, guard, utc_now
 
 ACTION_FILL = {"ADD": "E2F0D9", "REMOVE": "F8CBAD", "CHANGE ROLE": "FFF2CC", "RENAME ID": "DDEBF7", "FIX ID": "DDEBF7"}
 
@@ -73,7 +73,7 @@ def _report(r: Recon, version: int, approver: str, sha: str, reason: str) -> str
 
 def commit(ws: Workspace, cycle: str, approver: str, supersede: str | None = None) -> CommitResult:
     r = reconcile(ws, cycle)
-    if r.held:
+    if r.held and guard("review-before-commit"):
         outbox = Outbox(ws.outbox / cycle)
         path = outbox.draft(f"{cycle}-held-cases", ["space.admins@example.org"],
                             f"{len(r.held)} roster cases need a decision before the {cycle} import",

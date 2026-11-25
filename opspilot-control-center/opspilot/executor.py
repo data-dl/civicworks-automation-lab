@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .db import connect, migrate
 from .registry import Plan, Refused, RulesPlanner, Step, Tool, check_inputs, load_registry, validate_plan
-from .runkit import atomic_write_text, sha256_bytes, sha256_file, unique_dir, utc_now
+from .runkit import atomic_write_text, guard, sha256_bytes, sha256_file, unique_dir, utc_now
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -154,7 +154,7 @@ class OpsPilot:
                 continue
             if tool.effect == "publish":
                 auth = self._authorization(run_id, s.id)
-                if auth is None:
+                if auth is None and guard("publish-approval"):
                     status[s.id] = "awaiting-approval"
                     self._checkpoint(run_id, s.id, "awaiting-approval")
                     self.event(run_id, "approval-required", step=s.id, tool=s.tool)
@@ -162,7 +162,7 @@ class OpsPilot:
                                                         "publishes, so a person must approve it first"))
                     continue
                 if "role" in tool.inputs:  # the project records who approved, in its own terms
-                    params["role"] = auth["role"]
+                    params["role"] = auth["role"] if auth else "nobody"
             try:
                 clean = check_inputs(tool, {"workspace": s.project, **params}, self.workspaces)
             except Refused as exc:

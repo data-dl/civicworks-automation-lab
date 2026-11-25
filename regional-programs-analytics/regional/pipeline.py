@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import __version__
 from .db import connect, migrate
-from .runkit import Manifest, Outbox, sha256_file, unique_dir, utc_now, write_json
+from .runkit import Manifest, Outbox, guard, sha256_file, unique_dir, utc_now, write_json
 from .workbooks import build_incident_workbook, build_tier_workbook
 
 PROJECT = "regional-programs-analytics"
@@ -240,7 +240,8 @@ def run_quarter(ws: Workspace, quarter: str, *, approve_as: str | None = None, n
 
     # -- build ------------------------------------------------------------------------------------
     stage = manifest.begin("build")
-    status = "APPROVED" if approve_as and not result.blocking and not frozen else "DRAFT"
+    gate = bool(result.blocking) and guard("blocking-checks")
+    status = "APPROVED" if approve_as and not gate and not frozen else "DRAFT"
     draft_dir = ws.drafts / quarter
     draft_dir.mkdir(parents=True, exist_ok=True)
     context = {"quarter": quarter, "prior": prior, "status": status, "venues": venues, "regions": regions,
@@ -274,7 +275,7 @@ def run_quarter(ws: Workspace, quarter: str, *, approve_as: str | None = None, n
     elif frozen:
         result.verdict = f"ALREADY APPROVED (v{released['version']}); nothing replaced"
         manifest.end(stage, "blocked", reason="use --new-version to approve a revision")
-    elif result.blocking:
+    elif gate:
         result.verdict = "BLOCKED"
         manifest.end(stage, "blocked", blocking=len(result.blocking))
     else:
