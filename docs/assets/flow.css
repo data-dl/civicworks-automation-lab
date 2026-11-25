@@ -56,3 +56,9 @@
   .fl-predict { background: #3a3220 } .fl-note.bad, .fl-exit.stop, .fl-exit.refuse { background: #3a2622; color: #f0b9ad }
   .fl-exit.hold, .fl-exit.quarantine { background: #3a3220; color: #e8cf98 } .fl-exit.rollback { background: #23344a; color: #9cc3e6 }
 }
+.fl-play { display: flex; gap: 12px; align-items: center; flex-wrap: wrap }
+.fl.playing .fl-node.on { animation: fl-pulse 1.4s ease-in-out infinite }
+.fl.playing .fl-arrow { animation: fl-flow 1.4s linear infinite }
+@keyframes fl-pulse { 0%, 100% { box-shadow: 0 0 0 3px var(--fl-accent-soft) } 50% { box-shadow: 0 0 0 7px var(--fl-accent-soft) } }
+@keyframes fl-flow { 0% { opacity: .3 } 50% { opacity: 1 } 100% { opacity: .3 } }
+@media (prefers-reduced-motion: reduce) { .fl.playing .fl-node.on, .fl.playing .fl-arrow { animation: none } }

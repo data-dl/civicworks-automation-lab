@@ -29,6 +29,9 @@
     const nodes = flow.nodes;
     el.classList.add("fl");
     el.innerHTML = `<p class="fl-shape">${e(flow.shape)}</p>
+      <div class="fl-play"><button class="fl-btn" data-play>&#9654; Play the pipeline</button>
+        <span class="fl-m">Watch the data move through each box, one at a time. Pause on any box to read it; on the box marked
+        <b>safeguard</b> you can turn it off and see what happens.</span></div>
       <div class="fl-line" role="list">${nodes.map((n, i) => `
         <button class="fl-node" role="listitem" data-i="${i}" aria-label="Step ${i + 1}: ${e(n.name)}">
           <span class="fl-n">${i + 1}</span><b>${e(n.name)}</b><span class="fl-does">${e(n.does)}</span>
@@ -73,7 +76,23 @@
         run.remove();
       };
     }
-    el.querySelectorAll(".fl-node").forEach(b => b.onclick = () => show(+b.dataset.i));
+    // Play: step through the boxes on a timer, like data moving along the line. Clicking any box stops it there.
+    let timer = null;
+    const playBtn = el.querySelector("[data-play]");
+    const stop = (label = "&#9654; Play again") => { clearInterval(timer); timer = null; el.classList.remove("playing"); playBtn.innerHTML = label };
+    playBtn.onclick = () => {
+      if (timer) return stop("&#9654; Keep playing");
+      let i = el.querySelector(".fl-node.on") && current < nodes.length - 1 && playBtn.textContent.includes("Keep") ? current + 1 : 0;
+      el.classList.add("playing"); playBtn.innerHTML = "&#10073;&#10073; Pause";
+      show(i); el.querySelector(".fl-line").scrollIntoView({ block: "nearest", behavior: "smooth" });
+      timer = setInterval(() => {
+        i += 1;
+        if (i >= nodes.length) return stop();
+        show(i);
+        if (nodes[i].switch) stop("&#9654; Keep playing");      // pause on the safeguard so it can be switched off
+      }, 4200);
+    };
+    el.querySelectorAll(".fl-node").forEach(b => b.onclick = () => { if (timer) stop("&#9654; Keep playing"); show(+b.dataset.i) });
     const first = nodes.findIndex(n => n.switch);
     show(0);
     return { show, first };
